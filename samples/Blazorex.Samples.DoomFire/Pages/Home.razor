@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using Blazorex.Samples.DoomFire.Services
 
 <PageTitle>Home</PageTitle>
 
@@ -18,7 +19,7 @@
     float _lastUpdate = 0;
     float _elapsedTime = 0;
 
-    private Services.FireRenderer _fireRenderer;
+    private FireRenderer _fireRenderer;
     private int _fireWidth = 256;
     private int _fireHeight = 64;
 
@@ -50,7 +51,7 @@
     private async ValueTask OnFireCanvasReady(CanvasBase canvas)
     {
         _fireCanvas = canvas;
-        _fireRenderer = new Services.FireRenderer(canvas.RenderContext, _fireWidth, _fireHeight);
+        _fireRenderer = new FireRenderer(canvas.RenderContext, _fireWidth, _fireHeight);
         await _fireRenderer.InitAsync();
     }
 

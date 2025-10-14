@@ -1,4 +1,4 @@
-﻿namespace Blazorex.Samples.Services;
+﻿namespace Blazorex.Samples.DoomFire.Services;
 
 public class FireRenderer
 {
