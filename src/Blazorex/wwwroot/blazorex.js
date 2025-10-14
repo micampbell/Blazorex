@@ -168,7 +168,7 @@ export const createBlazorexAPI = () => {
                     else {
                         existingObject[methodName](...params);
                     }
-                    return;
+                    return null;
                 }
                 const result = typedContext[methodName](...params);
                 marshalledObjects.set(marshalRef.id, result);

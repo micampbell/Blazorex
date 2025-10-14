@@ -312,7 +312,7 @@ export const createBlazorexAPI: CreateBlazorexAPI = (): BlazorexAPI => {
                     } else {
                         existingObject[methodName](...params);
                     }
-                    return;
+                    return null;
                 }
                 
                 // Create new marshal object and store it
