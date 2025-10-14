@@ -2,9 +2,9 @@
 
 	<PropertyGroup>
 		<TargetFramework>net9.0</TargetFramework>
-		<PackageVersion>1.2.0</PackageVersion>
+		<PackageVersion>1.2.1</PackageVersion>
 		<IsPackable>true</IsPackable>
-		<Authors>mizrael;zettersten</Authors>
+		<Authors>davidguida;zettersten</Authors>
 		<Product>Blazorex</Product>
 		<NeutralLanguage>en-US</NeutralLanguage>
 		<Title>Blazorex</Title>
