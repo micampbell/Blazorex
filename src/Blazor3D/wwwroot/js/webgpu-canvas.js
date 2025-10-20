@@ -1,0 +1,268 @@
+// WebGPU canvas module: WebGpu_Canvas + GridDemo merged
+// External deps via ESM CDNs
+import { vec3, mat4 } from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/esm/index.js';
+import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.1/dist/tweakpane.min.js';
+
+// Inject styles (avoid forcing absolute/100% so Blazor sizing works)
+const injectedStyle = document.createElement('style');
+injectedStyle.innerText = `
+  html, body { height: 100%; margin: 0; font-family: sans-serif; }
+  body { height: 100%; background-color: #222222; }
+  .webgpu-canvas { display: block; width: 100%; height: auto; margin: 0; touch-action: none; }
+  .error { position: absolute; z-index: 2; inset: 9em 3em; margin: 0; padding: 0; color: #FF8888; }
+  .tp-dfwv { z-index: 3; width: 290px !important; }
+`;
+document.head.appendChild(injectedStyle);
+
+const FRAME_BUFFER_SIZE = Float32Array.BYTES_PER_ELEMENT * 36;
+
+export class WebGpu_Canvas {
+  #frameArrayBuffer = new ArrayBuffer(FRAME_BUFFER_SIZE);
+  #projectionMatrix = new Float32Array(this.#frameArrayBuffer, 0, 16);
+  #viewMatrix = new Float32Array(this.#frameArrayBuffer, 16 * Float32Array.BYTES_PER_ELEMENT, 16);
+  #cameraPosition = new Float32Array(this.#frameArrayBuffer, 32 * Float32Array.BYTES_PER_ELEMENT, 3);
+  #timeArray = new Float32Array(this.#frameArrayBuffer, 35 * Float32Array.BYTES_PER_ELEMENT, 1);
+
+  static CAMERA_UNIFORM_STRUCT = `
+    struct CameraUniforms { projection: mat4x4f, view: mat4x4f, position: vec3f, time: f32 }
+  `;
+
+  #frameMs = new Array(20);
+  #frameMsIndex = 0;
+
+  colorFormat = navigator.gpu?.getPreferredCanvasFormat?.() || 'bgra8unorm';
+  depthFormat = 'depth24plus';
+  sampleCount = 4;
+  clearColor = { r: 0, g: 0, b: 0, a: 1.0 };
+  fov = Math.PI * 0.5; zNear = 0.01; zFar = 128;
+
+  constructor() {
+    this.canvas = document.querySelector('.webgpu-canvas');
+    if (!this.canvas) { this.canvas = document.createElement('canvas'); document.body.appendChild(this.canvas); }
+    this.context = this.canvas.getContext('webgpu');
+
+    this.pane = new Pane({ title: (document.title || 'WebGPU').split('|')[0] });
+    this.camera = new OrbitCamera(this.canvas);
+
+    this.resizeObserver = new ResizeObserverHelper(this.canvas, (width, height) => {
+      if (width == 0 || height == 0) return;
+      this.canvas.width = width; this.canvas.height = height; this.updateProjection();
+      if (this.device) { const size = { width, height }; this.#allocateRenderTargets(size); this.onResize(this.device, size); }
+    });
+
+    const frameCallback = (t) => {
+      requestAnimationFrame(frameCallback);
+      const frameStart = performance.now();
+      this.#viewMatrix.set(this.camera.viewMatrix);
+      this.#cameraPosition.set(this.camera.position);
+      this.#timeArray[0] = t;
+      this.device.queue.writeBuffer(this.frameUniformBuffer, 0, this.#frameArrayBuffer);
+      this.onFrame(this.device, this.context, t);
+      this.#frameMs[this.#frameMsIndex++ % this.#frameMs.length] = performance.now() - frameStart;
+    };
+
+    this.#initWebGPU().then(() => {
+      this.resizeObserver.callback(this.canvas.width, this.canvas.height);
+      requestAnimationFrame(frameCallback);
+    }).catch((error) => { this.setError(error, 'initializing WebGPU'); throw error; });
+  }
+
+  setError(error, contextString) {
+    let prevError = document.querySelector('.error');
+    while (prevError) { this.canvas.parentElement.removeChild(prevError); prevError = document.querySelector('.error'); }
+    if (error) {
+      const errorElement = document.createElement('p');
+      errorElement.classList.add('error');
+      errorElement.innerHTML = `<p style='font-weight: bold'>An error occured${contextString ? ' while ' + contextString : ''}:</p><pre>${error?.message ?? error}</pre>`;
+      this.canvas.parentElement.appendChild(errorElement);
+    }
+  }
+
+  updateProjection() { mat4.perspectiveZO(this.#projectionMatrix, this.fov, this.canvas.width / this.canvas.height, this.zNear, this.zFar); }
+  get frameMs() { let avg = 0; for (const v of this.#frameMs) { if (v === undefined) return 0; avg += v; } return avg / this.#frameMs.length; }
+
+  async #initWebGPU() {
+    const adapter = await navigator.gpu.requestAdapter();
+    const requiredFeatures = [];
+    const featureList = adapter.features;
+    if (featureList.has('texture-compression-bc')) requiredFeatures.push('texture-compression-bc');
+    if (featureList.has('texture-compression-etc2')) requiredFeatures.push('texture-compression-etc2');
+    this.device = await adapter.requestDevice({ requiredFeatures });
+    this.context.configure({ device: this.device, format: this.colorFormat, alphaMode: 'opaque', viewFormats: [`${this.colorFormat}-srgb`] });
+    this.frameUniformBuffer = this.device.createBuffer({ size: FRAME_BUFFER_SIZE, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.frameBindGroupLayout = this.device.createBindGroupLayout({ label: 'Frame BGL', entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: {} }] });
+    this.frameBindGroup = this.device.createBindGroup({ label: 'Frame BG', layout: this.frameBindGroupLayout, entries: [{ binding: 0, resource: { buffer: this.frameUniformBuffer } }] });
+    this.statsFolder = this.pane.addFolder({ title: 'Stats', expanded: false });
+    this.statsFolder.addBinding(this, 'frameMs', { readonly: true, view: 'graph', min: 0, max: 2 });
+    await this.onInit(this.device);
+  }
+
+  #allocateRenderTargets(size) {
+    if (this.msaaColorTexture) this.msaaColorTexture.destroy();
+    if (this.sampleCount > 1) this.msaaColorTexture = this.device.createTexture({ size, sampleCount: this.sampleCount, format: `${this.colorFormat}-srgb`, usage: GPUTextureUsage.RENDER_ATTACHMENT });
+    if (this.depthTexture) this.depthTexture.destroy();
+    this.depthTexture = this.device.createTexture({ size, sampleCount: this.sampleCount, format: this.depthFormat, usage: GPUTextureUsage.RENDER_ATTACHMENT });
+    this.colorAttachment = { view: this.sampleCount > 1 ? this.msaaColorTexture.createView() : undefined, resolveTarget: undefined, clearValue: this.clearColor, loadOp: 'clear', storeOp: this.sampleCount > 1 ? 'discard' : 'store' };
+    this.renderPassDescriptor = { colorAttachments: [this.colorAttachment], depthStencilAttachment: { view: this.depthTexture.createView(), depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'discard' } };
+  }
+
+  get defaultRenderPassDescriptor() {
+    const colorView = this.context.getCurrentTexture().createView({ format: `${this.colorFormat}-srgb` });
+    if (this.sampleCount > 1) this.colorAttachment.resolveTarget = colorView; else this.colorAttachment.view = colorView;
+    return this.renderPassDescriptor;
+  }
+
+  async onInit(device) {}
+  onResize(device, size) {}
+  onFrame(device, context, timestamp) {}
+}
+
+class ResizeObserverHelper extends ResizeObserver {
+  constructor(element, callback) {
+    super((entries) => {
+      for (let entry of entries) {
+        if (entry.target !== element) continue;
+        if (entry.devicePixelContentBoxSize) {
+          const size = entry.devicePixelContentBoxSize[0];
+          callback(size.inlineSize, size.blockSize);
+        } else if (entry.contentBoxSize) {
+          const s = Array.isArray(entry.contentBoxSize) ? entry.contentBoxSize[0] : entry.contentBoxSize;
+          callback(s.inlineSize, s.blockSize);
+        } else {
+          callback(entry.contentRect.width, entry.contentRect.height);
+        }
+      }
+    });
+    this.element = element; this.callback = callback; this.observe(element);
+  }
+}
+
+export class OrbitCamera {
+  orbitX = 0; orbitY = 0; maxOrbitX = Math.PI * 0.5; minOrbitX = -Math.PI * 0.5; maxOrbitY = Math.PI; minOrbitY = -Math.PI; constrainXOrbit = true; constrainYOrbit = false;
+  maxDistance = 10; minDistance = 1; distanceStep = 0.005; constrainDistance = true;
+  #distance = vec3.fromValues(0, 0, 1); #target = vec3.create(); #viewMat = mat4.create(); #cameraMat = mat4.create(); #position = vec3.create(); #dirty = true;
+  #element; #registerElement;
+  constructor(element = null) {
+    let moving = false; let lastX, lastY;
+    const down = (e) => { if (e.isPrimary) moving = true; lastX = e.pageX; lastY = e.pageY; };
+    const move = (e) => {
+      let xDelta, yDelta;
+      if (document.pointerLockEnabled) { xDelta = e.movementX; yDelta = e.movementY; this.orbit(xDelta * 0.025, yDelta * 0.025); }
+      else if (moving) { xDelta = e.pageX - lastX; yDelta = e.pageY - lastY; lastX = e.pageX; lastY = e.pageY; this.orbit(xDelta * 0.025, yDelta * 0.025); }
+    };
+    const up = (e) => { if (e.isPrimary) moving = false; };
+    const wheel = (e) => { this.distance = this.#distance[2] + (-e.wheelDeltaY * this.distanceStep); e.preventDefault(); };
+    this.#registerElement = (value) => {
+      if (this.#element && this.#element !== value) {
+        this.#element.removeEventListener('pointerdown', down);
+        this.#element.removeEventListener('pointermove', move);
+        this.#element.removeEventListener('pointerup', up);
+        this.#element.removeEventListener('mousewheel', wheel);
+      }
+      this.#element = value;
+      if (this.#element) {
+        this.#element.addEventListener('pointerdown', down);
+        this.#element.addEventListener('pointermove', move);
+        this.#element.addEventListener('pointerup', up);
+        this.#element.addEventListener('mousewheel', wheel);
+      }
+    };
+    this.#element = element; this.#registerElement(element);
+  }
+  set element(v) { this.#registerElement(v); } get element() { return this.#element; }
+  orbit(xDelta, yDelta) {
+    if (!xDelta && !yDelta) return;
+    this.orbitY += xDelta;
+    if (this.constrainYOrbit) this.orbitY = Math.min(Math.max(this.orbitY, this.minOrbitY), this.maxOrbitY);
+    else { while (this.orbitY < -Math.PI) this.orbitY += Math.PI * 2; while (this.orbitY >= Math.PI) this.orbitY -= Math.PI * 2; }
+    this.orbitX += yDelta;
+    if (this.constrainXOrbit) this.orbitX = Math.min(Math.max(this.orbitX, this.minOrbitX), this.maxOrbitX);
+    else { while (this.orbitX < -Math.PI) this.orbitX += Math.PI * 2; while (this.orbitX >= Math.PI) this.orbitX -= Math.PI * 2; }
+    this.#dirty = true;
+  }
+  get target() { return [this.#target[0], this.#target[1], this.#target[2]]; }
+  set target(v) { this.#target[0] = v[0]; this.#target[1] = v[1]; this.#target[2] = v[2]; this.#dirty = true; }
+  get distance() { return this.#distance[2]; }
+  set distance(value) { this.#distance[2] = value; if (this.constrainDistance) this.#distance[2] = Math.min(Math.max(this.#distance[2], this.minDistance), this.maxDistance); this.#dirty = true; }
+  #updateMatrices() { if (this.#dirty) { const mv = this.#cameraMat; mat4.identity(mv); mat4.translate(mv, mv, this.#target); mat4.rotateY(mv, mv, -this.orbitY); mat4.rotateX(mv, mv, -this.orbitX); mat4.translate(mv, mv, this.#distance); mat4.invert(this.#viewMat, this.#cameraMat); this.#dirty = false; } }
+  get position() { this.#updateMatrices(); vec3.set(this.#position, 0, 0, 0); vec3.transformMat4(this.#position, this.#position, this.#cameraMat); return this.#position; }
+  get viewMatrix() { this.#updateMatrices(); return this.#viewMat; }
+}
+
+// WGSL grid shader
+const GRID_SHADER = `
+  fn PristineGrid(uv: vec2f, lineWidth: vec2f) -> f32 {
+      let uvDDXY = vec4f(dpdx(uv), dpdy(uv));
+      let uvDeriv = vec2f(length(uvDDXY.xz), length(uvDDXY.yw));
+      let invertLine: vec2<bool> = lineWidth > vec2f(0.5);
+      let targetWidth: vec2f = select(lineWidth, 1 - lineWidth, invertLine);
+      let drawWidth: vec2f = clamp(targetWidth, uvDeriv, vec2f(0.5));
+      let lineAA: vec2f = uvDeriv * 1.5;
+      var gridUV: vec2f = abs(fract(uv) * 2.0 - 1.0);
+      gridUV = select(1 - gridUV, gridUV, invertLine);
+      var grid2: vec2f = smoothstep(drawWidth + lineAA, drawWidth - lineAA, gridUV);
+      grid2 *= saturate(targetWidth / drawWidth);
+      grid2 = mix(grid2, targetWidth, saturate(uvDeriv * 2.0 - 1.0));
+      grid2 = select(grid2, 1.0 - grid2, invertLine);
+      return mix(grid2.x, 1.0, grid2.y);
+  }
+  struct VertexIn { @location(0) pos: vec4f, @location(1) uv: vec2f }
+  struct VertexOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f }
+  struct Camera { projection: mat4x4f, view: mat4x4f }
+  @group(0) @binding(0) var<uniform> camera: Camera;
+  struct GridArgs { lineColor: vec4f, baseColor: vec4f, lineWidth: vec2f }
+  @group(1) @binding(0) var<uniform> gridArgs: GridArgs;
+  @vertex fn vertexMain(in: VertexIn) -> VertexOut { var out: VertexOut; out.pos = camera.projection * camera.view * in.pos; out.uv = in.uv; return out; }
+  @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f { var grid = PristineGrid(in.uv, gridArgs.lineWidth); return mix(gridArgs.baseColor, gridArgs.lineColor, grid * gridArgs.lineColor.a); }
+`;
+
+export class GridDemo extends WebGpu_Canvas {
+  vertexBuffer = null; indexBuffer = null; uniformBuffer = null; bindGroup = null; pipeline = null;
+  uniformArray = new ArrayBuffer(16 * Float32Array.BYTES_PER_ELEMENT);
+  lineColor = new Float32Array(this.uniformArray, 0, 4);
+  baseColor = new Float32Array(this.uniformArray, 16, 4);
+  lineWidth = new Float32Array(this.uniformArray, 32, 2);
+  gridOptions = { clearColor: { r: 0, g: 0, b: 0.2, a: 1 }, lineColor: { r: 1, g: 1, b: 1, a: 1 }, baseColor: { r: 0, g: 0, b: 0, a: 1 }, lineWidthX: 0.05, lineWidthY: 0.05 };
+  onInit(device) {
+    const bindGroupLayout = device.createBindGroupLayout({ label: 'Pristine Grid', entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }] });
+    const module = device.createShaderModule({ label: 'Pristine Grid', code: GRID_SHADER });
+    device.createRenderPipelineAsync({
+      label: 'Pristine Grid',
+      layout: device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout, bindGroupLayout] }),
+      vertex: { module, entryPoint: 'vertexMain', buffers: [{ arrayStride: 20, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x2' }] }] },
+      fragment: { module, entryPoint: 'fragmentMain', targets: [{ format: `${this.colorFormat}-srgb` }] },
+      depthStencil: { format: this.depthFormat, depthWriteEnabled: true, depthCompare: 'less-equal' },
+      multisample: { count: this.sampleCount ?? 1 }
+    }).then((pipeline) => { this.pipeline = pipeline; });
+    const vertexArray = new Float32Array([ -20, -0.5, -20, 0, 0,  20, -0.5, -20, 200, 0,  -20, -0.5, 20, 0, 200,  20, -0.5, 20, 200, 200 ]);
+    this.vertexBuffer = device.createBuffer({ size: vertexArray.byteLength, usage: GPUBufferUsage.VERTEX, mappedAtCreation: true }); new Float32Array(this.vertexBuffer.getMappedRange()).set(vertexArray); this.vertexBuffer.unmap();
+    const indexArray = new Uint32Array([0, 1, 2, 1, 2, 3]);
+    this.indexBuffer = device.createBuffer({ size: indexArray.byteLength, usage: GPUBufferUsage.INDEX, mappedAtCreation: true }); new Uint32Array(this.indexBuffer.getMappedRange()).set(indexArray); this.indexBuffer.unmap();
+    this.uniformBuffer = device.createBuffer({ size: this.uniformArray.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.bindGroup = device.createBindGroup({ label: 'Pristine Grid', layout: bindGroupLayout, entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }] });
+    const updateUniforms = () => {
+      this.clearColor = this.gridOptions.clearColor;
+      this.lineColor.set([ this.gridOptions.lineColor.r, this.gridOptions.lineColor.g, this.gridOptions.lineColor.b, this.gridOptions.lineColor.a ]);
+      this.baseColor.set([ this.gridOptions.baseColor.r, this.gridOptions.baseColor.g, this.gridOptions.baseColor.b, this.gridOptions.baseColor.a ]);
+      this.lineWidth.set([ this.gridOptions.lineWidthX, this.gridOptions.lineWidthY ]);
+      device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformArray);
+    };
+    updateUniforms();
+    this._updateUniforms = updateUniforms;
+  }
+  onFrame(device, context, timestamp) {
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass(this.defaultRenderPassDescriptor);
+    if (this.pipeline) { pass.setPipeline(this.pipeline); pass.setBindGroup(0, this.frameBindGroup); pass.setBindGroup(1, this.bindGroup); pass.setVertexBuffer(0, this.vertexBuffer); pass.setIndexBuffer(this.indexBuffer, 'uint32'); pass.drawIndexed(6); }
+    pass.end(); device.queue.submit([encoder.finish()]);
+  }
+}
+
+let demo = null;
+export function initGridDemo(options) {
+  const canvas = document.querySelector('.webgpu-canvas');
+  if (!canvas) throw new Error('webgpu-canvas element not found');
+  demo = new GridDemo();
+  if (options) { Object.assign(demo.gridOptions, options); if (typeof demo._updateUniforms === 'function') demo._updateUniforms(); }
+}
+export function updateGridOptions(options) { if (demo && options) { Object.assign(demo.gridOptions, options); if (typeof demo._updateUniforms === 'function') demo._updateUniforms(); } }

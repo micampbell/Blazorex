@@ -40,7 +40,7 @@ Or, put it in a container with a fixed height and keep the canvas at height: 100
     {
         if (!firstRender) return;
 
-        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/webgpu-grid.js");
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/webgpu-canvas.js");
 
         var options = new
         {
