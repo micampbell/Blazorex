@@ -1,9 +1,28 @@
 // WebGPU canvas module for Blazor WebAssembly
-// This module exposes minimal functions that are invoked from the Blazor C# component
-//  - initGridDemo(dotnetRef, canvasEl, options): called from OnAfterRenderAsync in WebGPUCanvas.razor
-//  - updateGridOptions(options): called from OnParametersSetAsync in WebGPUCanvas.razor
-//  - disposeGridDemo(): called from DisposeAsync in WebGPUCanvas.razor
-// It renders the Pristine Grid shader to the provided canvas element using WebGPU.
+//
+// Overview
+//  - This file contains a small WebGPU engine (WebGpu_Canvas) and three exported
+//    functions used by the Blazor component via JS interop.
+//  - The engine draws the "Pristine Grid" shader onto a <canvas> with class/id
+//    'webgpu-canvas'. Camera controls are handled with pointer and wheel input.
+//
+// Called from C# (WebGPUCanvas.razor)
+//  - initGridDemo(dotnetRef, canvasEl, options)
+//      • dotnetRef: DotNetObjectReference passed from C# for callbacks
+//      • canvasEl: ElementReference to the Blazor-rendered canvas
+//      • options: { clearColor, lineColor, baseColor, lineWidthX, lineWidthY, sampleCount, fov, zNear, zFar }
+//      • Initializes WebGPU, builds pipeline/buffers, and starts the render loop
+//  - updateGridOptions(options)
+//      • Hot-updates grid colors/line widths and camera config.
+//      • Updates GPU uniform buffer immediately when possible.
+//  - disposeGridDemo()
+//      • Stops periodic callbacks and clears references; called by IAsyncDisposable.
+//
+// Notes for maintainers
+//  - The Blazor component owns UI and parameters; this module focuses on rendering.
+//  - Canvas size is controlled by CSS/layout. We reconfigure GPU surfaces on resize
+//    using ResizeObserverHelper (see that class for rationale).
+//  - Do not force absolute positioning here; let Blazor layout decide.
 
 // External deps via ESM CDNs
 import { vec3, mat4 } from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/esm/index.js';
@@ -21,6 +40,9 @@ document.head.appendChild(injectedStyle);
 const FRAME_BUFFER_SIZE = Float32Array.BYTES_PER_ELEMENT * 36;
 
 export class WebGpu_Canvas {
+  // Frame uniform packing
+  //  - projection (16 floats), view (16 floats)
+  //  - position/time omitted (not used by current shader)
   #frameArrayBuffer = new ArrayBuffer(FRAME_BUFFER_SIZE);
   #projectionMatrix = new Float32Array(this.#frameArrayBuffer, 0, 16);
   #viewMatrix = new Float32Array(this.#frameArrayBuffer, 16 * Float32Array.BYTES_PER_ELEMENT, 16);
@@ -43,6 +65,9 @@ export class WebGpu_Canvas {
   pipeline = null;
 
   // Uniform backing store and views
+  //  - A single ArrayBuffer holds lineColor (vec4), baseColor (vec4), lineWidth (vec2)
+  //  - Each Float32Array points into the shared buffer with proper offsets
+  //  - We update these arrays then write the contiguous buffer to the GPU
   uniformArray = new ArrayBuffer(16 * Float32Array.BYTES_PER_ELEMENT);
   lineColor = new Float32Array(this.uniformArray, 0, 4);
   baseColor = new Float32Array(this.uniformArray, 16, 4);
@@ -58,6 +83,8 @@ export class WebGpu_Canvas {
     this.context = this.canvas.getContext('webgpu');
     this.camera = new OrbitCamera(this.canvas);
 
+    // Listen for CSS/layout size changes and reconfigure GPU targets accordingly.
+    // See ResizeObserverHelper below for the HiDPI rationale.
     this.resizeObserver = new ResizeObserverHelper(this.canvas, (width, height) => {
       if (width == 0 || height == 0) return;
       this.canvas.width = width; this.canvas.height = height; this.updateProjection();
@@ -118,6 +145,7 @@ export class WebGpu_Canvas {
   }
 
   get defaultRenderPassDescriptor() {
+    // The current texture view may change every frame; rebuild the color target reference here.
     const colorView = this.context.getCurrentTexture().createView({ format: `${this.colorFormat}-srgb` });
     if (this.sampleCount > 1) this.colorAttachment.resolveTarget = colorView; else this.colorAttachment.view = colorView;
     return this.renderPassDescriptor;
@@ -147,6 +175,7 @@ export class WebGpu_Canvas {
       -20, -0.5,  20,   0, 200,
        20, -0.5,  20, 200, 200,
     ]);
+    // Statically define a ground quad (two triangles) with large UVs to show the grid pattern.
     this.vertexBuffer = device.createBuffer({ size: vertexArray.byteLength, usage: GPUBufferUsage.VERTEX, mappedAtCreation: true });
     new Float32Array(this.vertexBuffer.getMappedRange()).set(vertexArray);
     this.vertexBuffer.unmap();
@@ -160,6 +189,7 @@ export class WebGpu_Canvas {
     this.bindGroup = device.createBindGroup({ label: 'Pristine Grid', layout: bindGroupLayout, entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }] });
 
     const updateUniforms = () => {
+      // Copy values from JS-side options into the typed views, then write entire buffer to GPU.
       this.clearColor = this.gridOptions.clearColor;
       this.lineColor.set([ this.gridOptions.lineColor.r, this.gridOptions.lineColor.g, this.gridOptions.lineColor.b, this.gridOptions.lineColor.a ]);
       this.baseColor.set([ this.gridOptions.baseColor.r, this.gridOptions.baseColor.g, this.gridOptions.baseColor.b, this.gridOptions.baseColor.a ]);
@@ -171,6 +201,7 @@ export class WebGpu_Canvas {
   }
   onResize(device, size) { /* grid is resolution-independent */ }
   onFrame(device, context, timestamp) {
+    // Typical WebGPU frame: begin pass, bind pipeline + resources, draw, end pass, submit.
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginRenderPass(this.defaultRenderPassDescriptor);
     if (this.pipeline) {
@@ -187,26 +218,39 @@ export class WebGpu_Canvas {
 }
 
 class ResizeObserverHelper extends ResizeObserver {
+  // Purpose:
+  //  - Keep the GPU canvas in sync with CSS/layout size changes.
+  //  - On HiDPI displays, ResizeObserver provides devicePixelContentBoxSize which
+  //    reports the size in physical pixels. Using this avoids blurry rendering.
+  //  - When size changes, we update canvas.width/height (drawing buffer) and
+  //    reallocate GPU render targets (MSAA/depth).
   constructor(element, callback) {
     super((entries) => {
       for (let entry of entries) {
         if (entry.target !== element) continue;
+        // Prefer device pixel size if available (Chrome/Edge)
         if (entry.devicePixelContentBoxSize) {
           const size = entry.devicePixelContentBoxSize[0];
           callback(size.inlineSize, size.blockSize);
         } else if (entry.contentBoxSize) {
+          // Firefox exposes contentBoxSize. It may be an array or a single object.
           const s = Array.isArray(entry.contentBoxSize) ? entry.contentBoxSize[0] : entry.contentBoxSize;
           callback(s.inlineSize, s.blockSize);
         } else {
+          // Fallback to contentRect (CSS pixels)
           callback(entry.contentRect.width, entry.contentRect.height);
         }
       }
     });
+    // Store references (not strictly needed, but aids debugging/introspection)
     this.element = element; this.callback = callback; this.observe(element);
   }
 }
 
 export class OrbitCamera {
+  // Simple orbit camera with pointer drag and wheel zoom.
+  //  - x/y deltas change yaw/pitch in radians
+  //  - wheel changes distance with optional constraints
   orbitX = 0; orbitY = 0; maxOrbitX = Math.PI * 0.5; minOrbitX = -Math.PI * 0.5; maxOrbitY = Math.PI; minOrbitY = -Math.PI; constrainXOrbit = true; constrainYOrbit = false;
   maxDistance = 10; minDistance = 1; distanceStep = 0.005; constrainDistance = true;
   #distance = vec3.fromValues(0, 0, 1); #target = vec3.create(); #viewMat = mat4.create(); #cameraMat = mat4.create(); #position = vec3.create(); #dirty = true;
@@ -260,6 +304,7 @@ export class OrbitCamera {
 
 // WGSL grid shader
 const GRID_SHADER = `
+  // WGSL implementation of the "Pristine Grid" from https://bgolus.medium.com
   fn PristineGrid(uv: vec2f, lineWidth: vec2f) -> f32 {
       let uvDDXY = vec4f(dpdx(uv), dpdy(uv));
       let uvDeriv = vec2f(length(uvDDXY.xz), length(uvDDXY.yw));
@@ -292,6 +337,7 @@ let frameIntervalId = 0;
 let dotNetRef = null;
 
 export function initGridDemo(dotnet, canvasEl, options) {
+  // Entry point called by Blazor after the component renders the <canvas>.
   dotNetRef = dotnet ?? null;
   // Use the canvas ElementReference passed from Blazor if available
   const canvas = canvasEl || document.querySelector('.webgpu-canvas');
@@ -320,6 +366,7 @@ export function initGridDemo(dotnet, canvasEl, options) {
 }
 
 export function updateGridOptions(options) {
+  // Called by Blazor when parameters change. Uniforms are updated immediately.
   if (!demo || !options) return;
   if (typeof options.sampleCount === 'number') demo.sampleCount = options.sampleCount; // may require rebuild to fully apply
   if (typeof options.fov === 'number') demo.fov = options.fov;
@@ -330,6 +377,7 @@ export function updateGridOptions(options) {
 }
 
 export function disposeGridDemo() {
+  // Called by Blazor IAsyncDisposable to tear down timers and references.
   if (frameIntervalId) { clearInterval(frameIntervalId); frameIntervalId = 0; }
   demo = null;
   dotNetRef = null;
