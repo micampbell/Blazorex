@@ -1,7 +1,12 @@
-// WebGPU canvas module: WebGpu_Canvas + GridDemo merged
+// WebGPU canvas module for Blazor WebAssembly
+// This module exposes minimal functions that are invoked from the Blazor C# component
+//  - initGridDemo(dotnetRef, canvasEl, options): called from OnAfterRenderAsync in WebGPUCanvas.razor
+//  - updateGridOptions(options): called from OnParametersSetAsync in WebGPUCanvas.razor
+//  - disposeGridDemo(): called from DisposeAsync in WebGPUCanvas.razor
+// It renders the Pristine Grid shader to the provided canvas element using WebGPU.
+
 // External deps via ESM CDNs
 import { vec3, mat4 } from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/esm/index.js';
-import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.1/dist/tweakpane.min.js';
 
 // Inject styles (avoid forcing absolute/100% so Blazor sizing works)
 const injectedStyle = document.createElement('style');
@@ -10,7 +15,6 @@ injectedStyle.innerText = `
   body { height: 100%; background-color: #222222; }
   .webgpu-canvas { display: block; width: 100%; height: auto; margin: 0; touch-action: none; }
   .error { position: absolute; z-index: 2; inset: 9em 3em; margin: 0; padding: 0; color: #FF8888; }
-  .tp-dfwv { z-index: 3; width: 290px !important; }
 `;
 document.head.appendChild(injectedStyle);
 
@@ -20,12 +24,7 @@ export class WebGpu_Canvas {
   #frameArrayBuffer = new ArrayBuffer(FRAME_BUFFER_SIZE);
   #projectionMatrix = new Float32Array(this.#frameArrayBuffer, 0, 16);
   #viewMatrix = new Float32Array(this.#frameArrayBuffer, 16 * Float32Array.BYTES_PER_ELEMENT, 16);
-  #cameraPosition = new Float32Array(this.#frameArrayBuffer, 32 * Float32Array.BYTES_PER_ELEMENT, 3);
-  #timeArray = new Float32Array(this.#frameArrayBuffer, 35 * Float32Array.BYTES_PER_ELEMENT, 1);
-
-  static CAMERA_UNIFORM_STRUCT = `
-    struct CameraUniforms { projection: mat4x4f, view: mat4x4f, position: vec3f, time: f32 }
-  `;
+  // Note: camera position and time are not currently used by the shader; omitted from updates for simplicity.
 
   #frameMs = new Array(20);
   #frameMsIndex = 0;
@@ -36,12 +35,27 @@ export class WebGpu_Canvas {
   clearColor = { r: 0, g: 0, b: 0, a: 1.0 };
   fov = Math.PI * 0.5; zNear = 0.01; zFar = 128;
 
-  constructor() {
-    this.canvas = document.querySelector('.webgpu-canvas');
+  // Grid pipeline state (previously in GridDemo)
+  vertexBuffer = null;
+  indexBuffer = null;
+  uniformBuffer = null;
+  bindGroup = null;
+  pipeline = null;
+
+  // Uniform backing store and views
+  uniformArray = new ArrayBuffer(16 * Float32Array.BYTES_PER_ELEMENT);
+  lineColor = new Float32Array(this.uniformArray, 0, 4);
+  baseColor = new Float32Array(this.uniformArray, 16, 4);
+  lineWidth = new Float32Array(this.uniformArray, 32, 2);
+
+  // Configurable grid options
+  gridOptions = { clearColor: { r: 0, g: 0, b: 0.2, a: 1 }, lineColor: { r: 1, g: 1, b: 1, a: 1 }, baseColor: { r: 0, g: 0, b: 0, a: 1 }, lineWidthX: 0.05, lineWidthY: 0.05 };
+
+  constructor(element = null) {
+    // Prefer canvas element provided by Blazor, fallback to query
+    this.canvas = element || document.querySelector('.webgpu-canvas');
     if (!this.canvas) { this.canvas = document.createElement('canvas'); document.body.appendChild(this.canvas); }
     this.context = this.canvas.getContext('webgpu');
-
-    this.pane = new Pane({ title: (document.title || 'WebGPU').split('|')[0] });
     this.camera = new OrbitCamera(this.canvas);
 
     this.resizeObserver = new ResizeObserverHelper(this.canvas, (width, height) => {
@@ -54,8 +68,7 @@ export class WebGpu_Canvas {
       requestAnimationFrame(frameCallback);
       const frameStart = performance.now();
       this.#viewMatrix.set(this.camera.viewMatrix);
-      this.#cameraPosition.set(this.camera.position);
-      this.#timeArray[0] = t;
+      // Projection is updated on resize; view updated each frame above.
       this.device.queue.writeBuffer(this.frameUniformBuffer, 0, this.#frameArrayBuffer);
       this.onFrame(this.device, this.context, t);
       this.#frameMs[this.#frameMsIndex++ % this.#frameMs.length] = performance.now() - frameStart;
@@ -92,8 +105,6 @@ export class WebGpu_Canvas {
     this.frameUniformBuffer = this.device.createBuffer({ size: FRAME_BUFFER_SIZE, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.frameBindGroupLayout = this.device.createBindGroupLayout({ label: 'Frame BGL', entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: {} }] });
     this.frameBindGroup = this.device.createBindGroup({ label: 'Frame BG', layout: this.frameBindGroupLayout, entries: [{ binding: 0, resource: { buffer: this.frameUniformBuffer } }] });
-    this.statsFolder = this.pane.addFolder({ title: 'Stats', expanded: false });
-    this.statsFolder.addBinding(this, 'frameMs', { readonly: true, view: 'graph', min: 0, max: 2 });
     await this.onInit(this.device);
   }
 
@@ -112,9 +123,67 @@ export class WebGpu_Canvas {
     return this.renderPassDescriptor;
   }
 
-  async onInit(device) {}
-  onResize(device, size) {}
-  onFrame(device, context, timestamp) {}
+  async onInit(device) {
+    // Build grid pipeline, buffers, and uniforms
+    const bindGroupLayout = device.createBindGroupLayout({ label: 'Pristine Grid', entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }] });
+    const module = device.createShaderModule({ label: 'Pristine Grid', code: GRID_SHADER });
+
+    device.createRenderPipelineAsync({
+      label: 'Pristine Grid',
+      layout: device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout, bindGroupLayout] }),
+      vertex: {
+        module,
+        entryPoint: 'vertexMain',
+        buffers: [{ arrayStride: 20, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x2' }] }]
+      },
+      fragment: { module, entryPoint: 'fragmentMain', targets: [{ format: `${this.colorFormat}-srgb` }] },
+      depthStencil: { format: this.depthFormat, depthWriteEnabled: true, depthCompare: 'less-equal' },
+      multisample: { count: this.sampleCount ?? 1 }
+    }).then((pipeline) => { this.pipeline = pipeline; });
+
+    const vertexArray = new Float32Array([
+      -20, -0.5, -20,   0,   0,
+       20, -0.5, -20, 200,   0,
+      -20, -0.5,  20,   0, 200,
+       20, -0.5,  20, 200, 200,
+    ]);
+    this.vertexBuffer = device.createBuffer({ size: vertexArray.byteLength, usage: GPUBufferUsage.VERTEX, mappedAtCreation: true });
+    new Float32Array(this.vertexBuffer.getMappedRange()).set(vertexArray);
+    this.vertexBuffer.unmap();
+
+    const indexArray = new Uint32Array([0, 1, 2, 1, 2, 3]);
+    this.indexBuffer = device.createBuffer({ size: indexArray.byteLength, usage: GPUBufferUsage.INDEX, mappedAtCreation: true });
+    new Uint32Array(this.indexBuffer.getMappedRange()).set(indexArray);
+    this.indexBuffer.unmap();
+
+    this.uniformBuffer = device.createBuffer({ size: this.uniformArray.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.bindGroup = device.createBindGroup({ label: 'Pristine Grid', layout: bindGroupLayout, entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }] });
+
+    const updateUniforms = () => {
+      this.clearColor = this.gridOptions.clearColor;
+      this.lineColor.set([ this.gridOptions.lineColor.r, this.gridOptions.lineColor.g, this.gridOptions.lineColor.b, this.gridOptions.lineColor.a ]);
+      this.baseColor.set([ this.gridOptions.baseColor.r, this.gridOptions.baseColor.g, this.gridOptions.baseColor.b, this.gridOptions.baseColor.a ]);
+      this.lineWidth.set([ this.gridOptions.lineWidthX, this.gridOptions.lineWidthY ]);
+      device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformArray);
+    };
+    updateUniforms();
+    this._updateUniforms = updateUniforms;
+  }
+  onResize(device, size) { /* grid is resolution-independent */ }
+  onFrame(device, context, timestamp) {
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass(this.defaultRenderPassDescriptor);
+    if (this.pipeline) {
+      pass.setPipeline(this.pipeline);
+      pass.setBindGroup(0, this.frameBindGroup);
+      pass.setBindGroup(1, this.bindGroup);
+      pass.setVertexBuffer(0, this.vertexBuffer);
+      pass.setIndexBuffer(this.indexBuffer, 'uint32');
+      pass.drawIndexed(6);
+    }
+    pass.end();
+    device.queue.submit([encoder.finish()]);
+  }
 }
 
 class ResizeObserverHelper extends ResizeObserver {
@@ -216,53 +285,52 @@ const GRID_SHADER = `
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f { var grid = PristineGrid(in.uv, gridArgs.lineWidth); return mix(gridArgs.baseColor, gridArgs.lineColor, grid * gridArgs.lineColor.a); }
 `;
 
-export class GridDemo extends WebGpu_Canvas {
-  vertexBuffer = null; indexBuffer = null; uniformBuffer = null; bindGroup = null; pipeline = null;
-  uniformArray = new ArrayBuffer(16 * Float32Array.BYTES_PER_ELEMENT);
-  lineColor = new Float32Array(this.uniformArray, 0, 4);
-  baseColor = new Float32Array(this.uniformArray, 16, 4);
-  lineWidth = new Float32Array(this.uniformArray, 32, 2);
-  gridOptions = { clearColor: { r: 0, g: 0, b: 0.2, a: 1 }, lineColor: { r: 1, g: 1, b: 1, a: 1 }, baseColor: { r: 0, g: 0, b: 0, a: 1 }, lineWidthX: 0.05, lineWidthY: 0.05 };
-  onInit(device) {
-    const bindGroupLayout = device.createBindGroupLayout({ label: 'Pristine Grid', entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }] });
-    const module = device.createShaderModule({ label: 'Pristine Grid', code: GRID_SHADER });
-    device.createRenderPipelineAsync({
-      label: 'Pristine Grid',
-      layout: device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout, bindGroupLayout] }),
-      vertex: { module, entryPoint: 'vertexMain', buffers: [{ arrayStride: 20, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x2' }] }] },
-      fragment: { module, entryPoint: 'fragmentMain', targets: [{ format: `${this.colorFormat}-srgb` }] },
-      depthStencil: { format: this.depthFormat, depthWriteEnabled: true, depthCompare: 'less-equal' },
-      multisample: { count: this.sampleCount ?? 1 }
-    }).then((pipeline) => { this.pipeline = pipeline; });
-    const vertexArray = new Float32Array([ -20, -0.5, -20, 0, 0,  20, -0.5, -20, 200, 0,  -20, -0.5, 20, 0, 200,  20, -0.5, 20, 200, 200 ]);
-    this.vertexBuffer = device.createBuffer({ size: vertexArray.byteLength, usage: GPUBufferUsage.VERTEX, mappedAtCreation: true }); new Float32Array(this.vertexBuffer.getMappedRange()).set(vertexArray); this.vertexBuffer.unmap();
-    const indexArray = new Uint32Array([0, 1, 2, 1, 2, 3]);
-    this.indexBuffer = device.createBuffer({ size: indexArray.byteLength, usage: GPUBufferUsage.INDEX, mappedAtCreation: true }); new Uint32Array(this.indexBuffer.getMappedRange()).set(indexArray); this.indexBuffer.unmap();
-    this.uniformBuffer = device.createBuffer({ size: this.uniformArray.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-    this.bindGroup = device.createBindGroup({ label: 'Pristine Grid', layout: bindGroupLayout, entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }] });
-    const updateUniforms = () => {
-      this.clearColor = this.gridOptions.clearColor;
-      this.lineColor.set([ this.gridOptions.lineColor.r, this.gridOptions.lineColor.g, this.gridOptions.lineColor.b, this.gridOptions.lineColor.a ]);
-      this.baseColor.set([ this.gridOptions.baseColor.r, this.gridOptions.baseColor.g, this.gridOptions.baseColor.b, this.gridOptions.baseColor.a ]);
-      this.lineWidth.set([ this.gridOptions.lineWidthX, this.gridOptions.lineWidthY ]);
-      device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformArray);
-    };
-    updateUniforms();
-    this._updateUniforms = updateUniforms;
+// GridDemo merged into WebGpu_Canvas above
+
+let demo = null;
+let frameIntervalId = 0;
+let dotNetRef = null;
+
+export function initGridDemo(dotnet, canvasEl, options) {
+  dotNetRef = dotnet ?? null;
+  // Use the canvas ElementReference passed from Blazor if available
+  const canvas = canvasEl || document.querySelector('.webgpu-canvas');
+  if (!canvas) throw new Error('webgpu-canvas element not found');
+  demo = new WebGpu_Canvas(canvas);
+
+  // Apply base options including render config
+  if (options) {
+    if (typeof options.sampleCount === 'number') demo.sampleCount = options.sampleCount;
+    if (typeof options.fov === 'number') demo.fov = options.fov;
+    if (typeof options.zNear === 'number') demo.zNear = options.zNear;
+    if (typeof options.zFar === 'number') demo.zFar = options.zFar;
+    Object.assign(demo.gridOptions, options);
+    if (typeof demo._updateUniforms === 'function') demo._updateUniforms();
   }
-  onFrame(device, context, timestamp) {
-    const encoder = device.createCommandEncoder();
-    const pass = encoder.beginRenderPass(this.defaultRenderPassDescriptor);
-    if (this.pipeline) { pass.setPipeline(this.pipeline); pass.setBindGroup(0, this.frameBindGroup); pass.setBindGroup(1, this.bindGroup); pass.setVertexBuffer(0, this.vertexBuffer); pass.setIndexBuffer(this.indexBuffer, 'uint32'); pass.drawIndexed(6); }
-    pass.end(); device.queue.submit([encoder.finish()]);
+
+  // Periodically push frame ms to .NET (throttled)
+  if (dotNetRef) {
+    try { dotNetRef.invokeMethodAsync('OnWebGpuReady'); } catch {}
+    frameIntervalId = self.setInterval(() => {
+      if (!demo) return;
+      const ms = demo.frameMs || 0;
+      try { dotNetRef.invokeMethodAsync('OnFrameMsUpdate', ms); } catch {}
+    }, 1000);
   }
 }
 
-let demo = null;
-export function initGridDemo(options) {
-  const canvas = document.querySelector('.webgpu-canvas');
-  if (!canvas) throw new Error('webgpu-canvas element not found');
-  demo = new GridDemo();
-  if (options) { Object.assign(demo.gridOptions, options); if (typeof demo._updateUniforms === 'function') demo._updateUniforms(); }
+export function updateGridOptions(options) {
+  if (!demo || !options) return;
+  if (typeof options.sampleCount === 'number') demo.sampleCount = options.sampleCount; // may require rebuild to fully apply
+  if (typeof options.fov === 'number') demo.fov = options.fov;
+  if (typeof options.zNear === 'number') demo.zNear = options.zNear;
+  if (typeof options.zFar === 'number') demo.zFar = options.zFar;
+  Object.assign(demo.gridOptions, options);
+  if (typeof demo._updateUniforms === 'function') demo._updateUniforms();
 }
-export function updateGridOptions(options) { if (demo && options) { Object.assign(demo.gridOptions, options); if (typeof demo._updateUniforms === 'function') demo._updateUniforms(); } }
+
+export function disposeGridDemo() {
+  if (frameIntervalId) { clearInterval(frameIntervalId); frameIntervalId = 0; }
+  demo = null;
+  dotNetRef = null;
+}
