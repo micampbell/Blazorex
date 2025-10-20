@@ -19,12 +19,11 @@ injectedStyle.innerText = `
     background-color: #222222;
   }
 
-  canvas {
-    position: absolute;
-    z-index: 0;
-    height: 100%;
+  /* Only style our WebGPU canvas, and don't force absolute/fullscreen */
+  .webgpu-canvas {
+    display: block;
     width: 100%;
-    inset: 0;
+    height: auto;
     margin: 0;
     touch-action: none;
   }

@@ -1,7 +1,15 @@
 @inject IJSRuntime JS
 
-<canvas id="webgpu-canvas" class="webgpu-canvas" width="@Width" height="@Height"></canvas>
-
+<canvas id="webgpu-canvas"
+        class="webgpu-canvas"
+        width="@Width"
+        height="@Height">
+</canvas>
+@*    
+    how to change the height
+    style="height:@($"{Height}px"); width:100%;"
+Or, put it in a container with a fixed height and keep the canvas at height: 100% inside that container, but the change above to tiny-webgpu-demo.js is the key fix.
+*@
 @code {
     [Parameter]
     public int Width { get; set; } = 800;
