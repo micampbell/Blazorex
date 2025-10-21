@@ -248,23 +248,72 @@ class ResizeObserverHelper extends ResizeObserver {
 }
 
 export class OrbitCamera {
-  // Simple orbit camera with pointer drag and wheel zoom.
-  //  - x/y deltas change yaw/pitch in radians
-  //  - wheel changes distance with optional constraints
-  orbitX = 0; orbitY = 0; maxOrbitX = Math.PI * 0.5; minOrbitX = -Math.PI * 0.5; maxOrbitY = Math.PI; minOrbitY = -Math.PI; constrainXOrbit = true; constrainYOrbit = false;
-  maxDistance = 10; minDistance = 1; distanceStep = 0.005; constrainDistance = true;
-  #distance = vec3.fromValues(0, 0, 1); #target = vec3.create(); #viewMat = mat4.create(); #cameraMat = mat4.create(); #position = vec3.create(); #dirty = true;
-  #element; #registerElement;
+// Simple orbit camera with pointer drag and wheel zoom.
+//  - x/y deltas change yaw/pitch in radians
+//  - wheel changes distance with optional constraints
+  
+// Public orbit state (radians)
+orbitX = 0;
+orbitY = 0;
+maxOrbitX = Math.PI * 0.5;
+minOrbitX = -Math.PI * 0.5;
+maxOrbitY = Math.PI;
+minOrbitY = -Math.PI;
+constrainXOrbit = true;
+constrainYOrbit = false;
+
+// Distance constraints
+maxDistance = 10;
+minDistance = 1;
+distanceStep = 0.005;
+constrainDistance = true;
+
+// Private state
+#distance = vec3.fromValues(0, 0, 1);
+#target = vec3.create();
+#viewMat = mat4.create();
+#cameraMat = mat4.create();
+#position = vec3.create();
+#dirty = true;
+#element;
+#registerElement;
   constructor(element = null) {
-    let moving = false; let lastX, lastY;
-    const down = (e) => { if (e.isPrimary) moving = true; lastX = e.pageX; lastY = e.pageY; };
+    let moving = false;
+    let lastX, lastY;
+
+    const down = (e) => {
+      if (e.isPrimary) {
+        moving = true;
+      }
+      lastX = e.pageX;
+      lastY = e.pageY;
+    };
+
     const move = (e) => {
       let xDelta, yDelta;
-      if (document.pointerLockEnabled) { xDelta = e.movementX; yDelta = e.movementY; this.orbit(xDelta * 0.025, yDelta * 0.025); }
-      else if (moving) { xDelta = e.pageX - lastX; yDelta = e.pageY - lastY; lastX = e.pageX; lastY = e.pageY; this.orbit(xDelta * 0.025, yDelta * 0.025); }
+      if (document.pointerLockEnabled) {
+        xDelta = e.movementX;
+        yDelta = e.movementY;
+        this.orbit(xDelta * 0.025, yDelta * 0.025);
+      } else if (moving) {
+        xDelta = e.pageX - lastX;
+        yDelta = e.pageY - lastY;
+        lastX = e.pageX;
+        lastY = e.pageY;
+        this.orbit(xDelta * 0.025, yDelta * 0.025);
+      }
     };
-    const up = (e) => { if (e.isPrimary) moving = false; };
-    const wheel = (e) => { this.distance = this.#distance[2] + (-e.wheelDeltaY * this.distanceStep); e.preventDefault(); };
+
+    const up = (e) => {
+      if (e.isPrimary) {
+        moving = false;
+      }
+    };
+
+    const wheel = (e) => {
+      this.distance = this.#distance[2] + (-e.wheelDeltaY * this.distanceStep);
+      e.preventDefault();
+    };
     this.#registerElement = (value) => {
       if (this.#element && this.#element !== value) {
         this.#element.removeEventListener('pointerdown', down);
@@ -280,26 +329,87 @@ export class OrbitCamera {
         this.#element.addEventListener('mousewheel', wheel);
       }
     };
-    this.#element = element; this.#registerElement(element);
+    this.#element = element;
+    this.#registerElement(element);
   }
-  set element(v) { this.#registerElement(v); } get element() { return this.#element; }
+
+  set element(v) {
+    this.#registerElement(v);
+  }
+
+  get element() {
+    return this.#element;
+  }
+
   orbit(xDelta, yDelta) {
     if (!xDelta && !yDelta) return;
+
     this.orbitY += xDelta;
-    if (this.constrainYOrbit) this.orbitY = Math.min(Math.max(this.orbitY, this.minOrbitY), this.maxOrbitY);
-    else { while (this.orbitY < -Math.PI) this.orbitY += Math.PI * 2; while (this.orbitY >= Math.PI) this.orbitY -= Math.PI * 2; }
+    if (this.constrainYOrbit) {
+      this.orbitY = Math.min(Math.max(this.orbitY, this.minOrbitY), this.maxOrbitY);
+    } else {
+      while (this.orbitY < -Math.PI) this.orbitY += Math.PI * 2;
+      while (this.orbitY >= Math.PI) this.orbitY -= Math.PI * 2;
+    }
+
     this.orbitX += yDelta;
-    if (this.constrainXOrbit) this.orbitX = Math.min(Math.max(this.orbitX, this.minOrbitX), this.maxOrbitX);
-    else { while (this.orbitX < -Math.PI) this.orbitX += Math.PI * 2; while (this.orbitX >= Math.PI) this.orbitX -= Math.PI * 2; }
+    if (this.constrainXOrbit) {
+      this.orbitX = Math.min(Math.max(this.orbitX, this.minOrbitX), this.maxOrbitX);
+    } else {
+      while (this.orbitX < -Math.PI) this.orbitX += Math.PI * 2;
+      while (this.orbitX >= Math.PI) this.orbitX -= Math.PI * 2;
+    }
+
     this.#dirty = true;
   }
-  get target() { return [this.#target[0], this.#target[1], this.#target[2]]; }
-  set target(v) { this.#target[0] = v[0]; this.#target[1] = v[1]; this.#target[2] = v[2]; this.#dirty = true; }
-  get distance() { return this.#distance[2]; }
-  set distance(value) { this.#distance[2] = value; if (this.constrainDistance) this.#distance[2] = Math.min(Math.max(this.#distance[2], this.minDistance), this.maxDistance); this.#dirty = true; }
-  #updateMatrices() { if (this.#dirty) { const mv = this.#cameraMat; mat4.identity(mv); mat4.translate(mv, mv, this.#target); mat4.rotateY(mv, mv, -this.orbitY); mat4.rotateX(mv, mv, -this.orbitX); mat4.translate(mv, mv, this.#distance); mat4.invert(this.#viewMat, this.#cameraMat); this.#dirty = false; } }
-  get position() { this.#updateMatrices(); vec3.set(this.#position, 0, 0, 0); vec3.transformMat4(this.#position, this.#position, this.#cameraMat); return this.#position; }
-  get viewMatrix() { this.#updateMatrices(); return this.#viewMat; }
+
+  get target() {
+    return [this.#target[0], this.#target[1], this.#target[2]];
+  }
+
+  set target(v) {
+    this.#target[0] = v[0];
+    this.#target[1] = v[1];
+    this.#target[2] = v[2];
+    this.#dirty = true;
+  }
+
+  get distance() {
+    return this.#distance[2];
+  }
+
+  set distance(value) {
+    this.#distance[2] = value;
+    if (this.constrainDistance) {
+      this.#distance[2] = Math.min(Math.max(this.#distance[2], this.minDistance), this.maxDistance);
+    }
+    this.#dirty = true;
+  }
+
+  #updateMatrices() {
+    if (this.#dirty) {
+      const mv = this.#cameraMat;
+      mat4.identity(mv);
+      mat4.translate(mv, mv, this.#target);
+      mat4.rotateY(mv, mv, -this.orbitY);
+      mat4.rotateX(mv, mv, -this.orbitX);
+      mat4.translate(mv, mv, this.#distance);
+      mat4.invert(this.#viewMat, this.#cameraMat);
+      this.#dirty = false;
+    }
+  }
+
+  get position() {
+    this.#updateMatrices();
+    vec3.set(this.#position, 0, 0, 0);
+    vec3.transformMat4(this.#position, this.#position, this.#cameraMat);
+    return this.#position;
+  }
+
+  get viewMatrix() {
+    this.#updateMatrices();
+    return this.#viewMat;
+  }
 }
 
 // WGSL grid shader
@@ -329,8 +439,6 @@ const GRID_SHADER = `
   @vertex fn vertexMain(in: VertexIn) -> VertexOut { var out: VertexOut; out.pos = camera.projection * camera.view * in.pos; out.uv = in.uv; return out; }
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f { var grid = PristineGrid(in.uv, gridArgs.lineWidth); return mix(gridArgs.baseColor, gridArgs.lineColor, grid * gridArgs.lineColor.a); }
 `;
-
-// GridDemo merged into WebGpu_Canvas above
 
 let demo = null;
 let frameIntervalId = 0;

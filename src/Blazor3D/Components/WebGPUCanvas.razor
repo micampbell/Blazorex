@@ -1,15 +1,17 @@
+@using Blazor3D.Models
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
 <canvas id="webgpu-canvas"
-        class="webgpu-canvas"
-        width="@Width"
-        height="@Height"
+		class="webgpu-canvas"
+        style="height:100%; width:100%;"
         @ref="_canvasRef">
 </canvas>
 @*    
+		style="height:@($"{Height}px"); width:100%;"
+        width="@Width"
+        height="@Height"
     how to change the height
-    style="height:@($"{Height}px"); width:100%;"
 Or, put it in a container with a fixed height and keep the canvas at height: 100% inside that container, but the change above to tiny-webgpu-demo.js is the key fix.
 *@
 @code {
@@ -21,21 +23,32 @@ Or, put it in a container with a fixed height and keep the canvas at height: 100
 
     // Grid options translated to C#
     [Parameter]
-    public string ClearColor { get; set; } = "#003366"; // hex
+    public ColorRgba SkyColor { get; set; } = new ColorRgba(0,0,0.5,1);
 
     [Parameter]
-    public string LineColor { get; set; } = "#ffffff"; // hex
+    public ColorRgba LineColor { get; set; } = new ColorRgba(1,1,1,1);
 
     [Parameter]
-    public string BaseColor { get; set; } = "#000000"; // hex
+    public ColorRgba BaseColor { get; set; } = new ColorRgba(0.01,0.1,0.01,0.1);
+
+    private double _lineWidthX = 0.2;
+    private double _lineWidthY = 0.2;
 
     [Parameter]
-    public float LineWidthX { get; set; } = 0.05f;
+    public double LineWidthX
+    {
+        get => _lineWidthX;
+        set => _lineWidthX = Math.Clamp(value, 0.0, 1.0); // Validate in C#
+    }
 
     [Parameter]
-    public float LineWidthY { get; set; } = 0.05f;
+    public double LineWidthY
+    {
+        get => _lineWidthY;
+        set => _lineWidthY = Math.Clamp(value, 0.0, 1.0); // Validate in C#
+    }
 
-    // Camera / device configuration moved to C#
+    // Camera / device configuration 
     [Parameter]
     public int SampleCount { get; set; } = 4;
 
@@ -50,7 +63,6 @@ Or, put it in a container with a fixed height and keep the canvas at height: 100
 
     private ElementReference _canvasRef;
     private IJSObjectReference? _module;
-    private bool _initialized;
     private DotNetObjectReference<WebGPUCanvas>? _dotNetRef;
     private bool _ready;
     private string? _error;
@@ -60,42 +72,46 @@ Or, put it in a container with a fixed height and keep the canvas at height: 100
     {
         if (!firstRender) return;
 
+        // One-time initialization: import module and create .NET reference
         _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/webgpu-canvas.js");
         _dotNetRef = DotNetObjectReference.Create(this);
 
-        var options = new
-        {
-            clearColor = HexToRgba(ClearColor),
-            lineColor = HexToRgba(LineColor),
-            baseColor = HexToRgba(BaseColor),
-            lineWidthX = LineWidthX,
-            lineWidthY = LineWidthY,
-            sampleCount = SampleCount,
-            fov = Fov,
-            zNear = ZNear,
-            zFar = ZFar
-        };
-
-        await _module.InvokeVoidAsync("initGridDemo", _dotNetRef, _canvasRef, options);
-        _initialized = true;
+        // Send initial options (this triggers the render loop in JS)
+        await SendOptionsToJavaScriptAsync(isInitializing: true);
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!_initialized || _module is null) return;
+        // Only send updates after the module is loaded (after first render)
+        await SendOptionsToJavaScriptAsync(isInitializing: false);
+    }
 
-        await _module.InvokeVoidAsync("updateGridOptions", new
+    private async Task SendOptionsToJavaScriptAsync(bool isInitializing)
+    {
+        // Guard: module must be loaded (happens after first render)
+        if (_module is null) return;
+
+        var options = new WebGpuGridOptions
         {
-            clearColor = HexToRgba(ClearColor),
-            lineColor = HexToRgba(LineColor),
-            baseColor = HexToRgba(BaseColor),
-            lineWidthX = LineWidthX,
-            lineWidthY = LineWidthY,
-            sampleCount = SampleCount,
-            fov = Fov,
-            zNear = ZNear,
-            zFar = ZFar
-        });
+            ClearColor = SkyColor,
+            LineColor = LineColor,
+            BaseColor = BaseColor,
+            LineWidthX = LineWidthX,
+            LineWidthY = LineWidthY,
+            SampleCount = SampleCount,
+            Fov = Fov,
+            ZNear = ZNear,
+            ZFar = ZFar
+        };
+
+        if (isInitializing)
+        {
+            await _module.InvokeVoidAsync("initGridDemo", _dotNetRef, _canvasRef, options);
+        }
+        else
+        {
+            await _module.InvokeVoidAsync("updateGridOptions", options);
+        }
     }
 
     [JSInvokable]
@@ -122,33 +138,6 @@ Or, put it in a container with a fixed height and keep the canvas at height: 100
         LatestFrameMs = ms;
         // No StateHasChanged to avoid re-render per frame; consumer can bind to events if desired
         return Task.CompletedTask;
-    }
-
-    private static object HexToRgba(string hex)
-    {
-        if (string.IsNullOrWhiteSpace(hex))
-            return new { r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f };
-
-        if (hex.StartsWith('#')) hex = hex[1..];
-
-        if (hex.Length == 6)
-        {
-            var r = Convert.ToInt32(hex.Substring(0, 2), 16) / 255f;
-            var g = Convert.ToInt32(hex.Substring(2, 2), 16) / 255f;
-            var b = Convert.ToInt32(hex.Substring(4, 2), 16) / 255f;
-            return new { r, g, b, a = 1.0f };
-        }
-
-        if (hex.Length == 8)
-        {
-            var r = Convert.ToInt32(hex.Substring(0, 2), 16) / 255f;
-            var g = Convert.ToInt32(hex.Substring(2, 2), 16) / 255f;
-            var b = Convert.ToInt32(hex.Substring(4, 2), 16) / 255f;
-            var a = Convert.ToInt32(hex.Substring(6, 2), 16) / 255f;
-            return new { r, g, b, a };
-        }
-
-        return new { r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f };
     }
 
     public async ValueTask DisposeAsync()
