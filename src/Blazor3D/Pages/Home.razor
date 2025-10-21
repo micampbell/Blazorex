@@ -12,6 +12,10 @@
         Options="_currentOptions" 
         OptionsChanged="OnOptionsChanged" 
         IsExpanded="true" />
+    <button class="add-cube-button" @onclick="AddCube">
+        ➕ Add Cube
+    </button>
+
 </div>
 
 <style>
@@ -26,15 +30,78 @@
         margin: 0;
         padding: 0;
     }
+
+    .add-cube-button {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        padding: 12px 24px;
+        background: #28a745;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        transition: background 0.2s, transform 0.1s;
+    }
+
+    .add-cube-button:hover {
+        background: #218838;
+    }
+
+    .add-cube-button:active {
+        transform: scale(0.98);
+    }
 </style>
 
 @code {
-    private WebGpuGridOptions _currentOptions = WebGpuGridOptions.Default;
+	private WebGpuGridOptions _currentOptions = WebGpuGridOptions.Default;
 
-    private void OnOptionsChanged(WebGpuGridOptions newOptions)
+	private void OnOptionsChanged(WebGpuGridOptions newOptions)
+	{
+		_currentOptions = newOptions;
+		StateHasChanged();
+	}
+	private void AddCube(MouseEventArgs args)
+	{
+		// add cube to the WebGPUCanvas with a minumum vertex at (-5, -5, -5) and maximum vertex at (5, 5, 5)
+        var vertexBuffer = new Vertex[]
+        {
+            new Vertex(-5, -5, -5),
+           new Vertex(  5, -5, -5),
+          new Vertex(   5,  5, -5),
+          new Vertex(  -5,  5, -5),
+          new Vertex(  -5, -5,  5),
+          new Vertex(   5, -5,  5),
+          new Vertex(   5,  5,  5),
+          new Vertex(  -5,  5,  5)
+        };
+        var indexBuffer = new ushort[]
+        {
+            0, 1, 2, 2, 3, 0,
+            4, 5, 6, 6, 7, 4,
+            0, 1, 5, 5, 4, 0,
+            2, 3, 7, 7, 6, 2,
+            0, 3, 7, 7, 4, 0,
+            1, 2, 6, 6, 5, 1
+        };
+        // 
+	}
+    public class Vertex
     {
-        _currentOptions = newOptions;
-        StateHasChanged();
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+        public Vertex(double x, double y, double z)
+        {
+            X = x;
+            Y = y;
+            Z = z;
+        }
     }
 }
+
 
