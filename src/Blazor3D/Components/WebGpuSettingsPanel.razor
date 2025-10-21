@@ -1,0 +1,383 @@
+@using Blazor3D.Models
+
+<div class="webgpu-settings-panel @(IsExpanded ? "expanded" : "collapsed")">
+    <button class="toggle-button" @onclick="ToggleExpanded">
+        <span class="icon">@(IsExpanded ? "?" : "?")</span>
+        WebGPU Settings
+    </button>
+
+    @if (IsExpanded)
+    {
+        <div class="settings-content">
+            <div class="setting-group">
+                <h3>Colors</h3>
+                
+                <div class="setting-item">
+                    <label>Sky Color</label>
+                    <div class="color-inputs">
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.ClearColor.R" 
+                               @oninput="@(e => UpdateClearColor(r: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.ClearColor.G" 
+                               @oninput="@(e => UpdateClearColor(g: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.ClearColor.B" 
+                               @oninput="@(e => UpdateClearColor(b: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.ClearColor.A" 
+                               @oninput="@(e => UpdateClearColor(a: ParseDouble(e.Value)))" />
+                    </div>
+                    <div class="color-preview" style="background: rgba(@RgbaToCss(Options.ClearColor));"></div>
+                </div>
+
+                <div class="setting-item">
+                    <label>Line Color</label>
+                    <div class="color-inputs">
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.LineColor.R" 
+                               @oninput="@(e => UpdateLineColor(r: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.LineColor.G" 
+                               @oninput="@(e => UpdateLineColor(g: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.LineColor.B" 
+                               @oninput="@(e => UpdateLineColor(b: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.LineColor.A" 
+                               @oninput="@(e => UpdateLineColor(a: ParseDouble(e.Value)))" />
+                    </div>
+                    <div class="color-preview" style="background: rgba(@RgbaToCss(Options.LineColor));"></div>
+                </div>
+
+                <div class="setting-item">
+                    <label>Base Color</label>
+                    <div class="color-inputs">
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.BaseColor.R" 
+                               @oninput="@(e => UpdateBaseColor(r: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.BaseColor.G" 
+                               @oninput="@(e => UpdateBaseColor(g: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.BaseColor.B" 
+                               @oninput="@(e => UpdateBaseColor(b: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="1" step="0.01" value="@Options.BaseColor.A" 
+                               @oninput="@(e => UpdateBaseColor(a: ParseDouble(e.Value)))" />
+                    </div>
+                    <div class="color-preview" style="background: rgba(@RgbaToCss(Options.BaseColor));"></div>
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <h3>Grid</h3>
+                
+                <div class="setting-item">
+                    <label>Line Width X: @Options.LineWidthX.ToString("F2")</label>
+                    <input type="range" min="0" max="1" step="0.01" value="@Options.LineWidthX" 
+                           @oninput="@(e => UpdateLineWidthX(ParseDouble(e.Value)))" />
+                </div>
+
+                <div class="setting-item">
+                    <label>Line Width Y: @Options.LineWidthY.ToString("F2")</label>
+                    <input type="range" min="0" max="1" step="0.01" value="@Options.LineWidthY" 
+                           @oninput="@(e => UpdateLineWidthY(ParseDouble(e.Value)))" />
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <h3>Camera</h3>
+                
+                <div class="setting-item">
+                    <label>Field of View: @(Options.Fov * 180 / Math.PI).ToString("F0")°</label>
+                    <input type="range" min="@(Math.PI * 0.2)" max="@(Math.PI * 0.9)" step="0.01" value="@Options.Fov" 
+                           @oninput="@(e => UpdateFov(ParseDouble(e.Value)))" />
+                </div>
+
+                <div class="setting-item">
+                    <label>Near Plane: @Options.ZNear.ToString("F2")</label>
+                    <input type="range" min="0.001" max="1" step="0.001" value="@Options.ZNear" 
+                           @oninput="@(e => UpdateZNear(ParseDouble(e.Value)))" />
+                </div>
+
+                <div class="setting-item">
+                    <label>Far Plane: @Options.ZFar.ToString("F0")</label>
+                    <input type="range" min="10" max="500" step="1" value="@Options.ZFar" 
+                           @oninput="@(e => UpdateZFar(ParseDouble(e.Value)))" />
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <h3>Rendering</h3>
+                
+                <div class="setting-item">
+                    <label>MSAA Sample Count</label>
+                    <select value="@Options.SampleCount" @onchange="HandleSampleCountChange">
+                        <option value="1">1x (No MSAA)</option>
+                        <option value="2">2x</option>
+                        <option value="4">4x</option>
+                        <option value="8">8x</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="setting-actions">
+                <button @onclick="ResetToDefaults">Reset to Defaults</button>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .webgpu-settings-panel {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(40, 40, 40, 0.95);
+        border: 1px solid #555;
+        border-radius: 8px;
+        color: #eee;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 14px;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .webgpu-settings-panel.collapsed {
+        width: auto;
+    }
+
+    .webgpu-settings-panel.expanded {
+        width: 320px;
+    }
+
+    .toggle-button {
+        width: 100%;
+        padding: 12px 16px;
+        background: transparent;
+        border: none;
+        color: #eee;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .toggle-button:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    .toggle-button .icon {
+        font-size: 10px;
+        transition: transform 0.2s;
+    }
+
+    .settings-content {
+        padding: 0 16px 16px;
+    }
+
+    .setting-group {
+        margin-bottom: 20px;
+    }
+
+    .setting-group h3 {
+        margin: 0 0 12px 0;
+        font-size: 13px;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #555;
+        padding-bottom: 6px;
+    }
+
+    .setting-item {
+        margin-bottom: 16px;
+    }
+
+    .setting-item label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        color: #ccc;
+    }
+
+    .setting-item input[type="range"] {
+        width: 100%;
+        height: 4px;
+        background: #555;
+        border-radius: 2px;
+        outline: none;
+        -webkit-appearance: none;
+    }
+
+    .setting-item input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        background: #0d6efd;
+        cursor: pointer;
+        border-radius: 50%;
+    }
+
+    .setting-item input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        background: #0d6efd;
+        cursor: pointer;
+        border-radius: 50%;
+        border: none;
+    }
+
+    .setting-item select {
+        width: 100%;
+        padding: 6px 8px;
+        background: #333;
+        border: 1px solid #555;
+        border-radius: 4px;
+        color: #eee;
+        font-size: 12px;
+    }
+
+    .color-inputs {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+
+    .color-preview {
+        width: 100%;
+        height: 24px;
+        border-radius: 4px;
+        border: 1px solid #666;
+    }
+
+    .setting-actions {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #555;
+    }
+
+    .setting-actions button {
+        width: 100%;
+        padding: 8px;
+        background: #0d6efd;
+        border: none;
+        border-radius: 4px;
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .setting-actions button:hover {
+        background: #0b5ed7;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public WebGpuGridOptions Options { get; set; } = WebGpuGridOptions.Default;
+
+    [Parameter]
+    public EventCallback<WebGpuGridOptions> OptionsChanged { get; set; }
+
+    [Parameter]
+    public bool IsExpanded { get; set; } = true;
+
+    private void ToggleExpanded() => IsExpanded = !IsExpanded;
+
+    private double ParseDouble(object? value) => 
+        double.TryParse(value?.ToString(), out var result) ? result : 0;
+
+    private string RgbaToCss(ColorRgba color) => 
+        $"{(int)(color.R * 255)}, {(int)(color.G * 255)}, {(int)(color.B * 255)}, {color.A}";
+
+    private async Task UpdateClearColor(double? r = null, double? g = null, double? b = null, double? a = null)
+    {
+        Options = Options with
+        {
+            ClearColor = new ColorRgba(
+                r ?? Options.ClearColor.R,
+                g ?? Options.ClearColor.G,
+                b ?? Options.ClearColor.B,
+                a ?? Options.ClearColor.A
+            )
+        };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task UpdateLineColor(double? r = null, double? g = null, double? b = null, double? a = null)
+    {
+        Options = Options with
+        {
+            LineColor = new ColorRgba(
+                r ?? Options.LineColor.R,
+                g ?? Options.LineColor.G,
+                b ?? Options.LineColor.B,
+                a ?? Options.LineColor.A
+            )
+        };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task UpdateBaseColor(double? r = null, double? g = null, double? b = null, double? a = null)
+    {
+        Options = Options with
+        {
+            BaseColor = new ColorRgba(
+                r ?? Options.BaseColor.R,
+                g ?? Options.BaseColor.G,
+                b ?? Options.BaseColor.B,
+                a ?? Options.BaseColor.A
+            )
+        };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task UpdateLineWidthX(double value)
+    {
+        Options = Options with { LineWidthX = value };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task UpdateLineWidthY(double value)
+    {
+        Options = Options with { LineWidthY = value };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task UpdateFov(double value)
+    {
+        Options = Options with { Fov = value };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task UpdateZNear(double value)
+    {
+        Options = Options with { ZNear = value };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task UpdateZFar(double value)
+    {
+        Options = Options with { ZFar = value };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task UpdateSampleCount(int value)
+    {
+        Options = Options with { SampleCount = value };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task HandleSampleCountChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value))
+        {
+            await UpdateSampleCount(value);
+        }
+    }
+
+    private async Task ResetToDefaults()
+    {
+        Options = WebGpuGridOptions.Default;
+        await OptionsChanged.InvokeAsync(Options);
+    }
+}
