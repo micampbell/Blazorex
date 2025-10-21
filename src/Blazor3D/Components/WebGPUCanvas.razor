@@ -28,6 +28,37 @@ public WebGpuGridOptions Options { get; set; } = WebGpuGridOptions.Default;
     private string? _error;
     public double LatestFrameMs { get; private set; }
 
+    /// <summary>
+    /// Adds a mesh to the WebGPU scene for rendering.
+    /// </summary>
+    public async Task AddMeshAsync(MeshData mesh)
+    {
+        if (_module is null || !_ready)
+        {
+            throw new InvalidOperationException("WebGPU is not ready. Wait for initialization.");
+        }
+
+        await _module.InvokeVoidAsync("addMesh", mesh);
+    }
+
+    /// <summary>
+    /// Removes a mesh from the scene by its ID.
+    /// </summary>
+    public async Task RemoveMeshAsync(string meshId)
+    {
+        if (_module is null) return;
+        await _module.InvokeVoidAsync("removeMesh", meshId);
+    }
+
+    /// <summary>
+    /// Clears all dynamically added meshes from the scene.
+    /// </summary>
+    public async Task ClearAllMeshesAsync()
+    {
+        if (_module is null) return;
+        await _module.InvokeVoidAsync("clearAllMeshes");
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;

@@ -80,6 +80,9 @@ export class WebGpu_Canvas {
   // Configurable grid options
   gridOptions = { clearColor: { r: 0, g: 0, b: 0.2, a: 1 }, lineColor: { r: 1, g: 1, b: 1, a: 1 }, baseColor: { r: 0, g: 0, b: 0, a: 1 }, lineWidthX: 0.05, lineWidthY: 0.05 };
 
+  // Dynamic meshes array (cubes, etc.)
+  meshes = [];
+
   constructor(element = null) {
     // Prefer canvas element provided by Blazor, fallback to query
     this.canvas = element || document.querySelector('.webgpu-canvas');
@@ -229,10 +232,13 @@ export class WebGpu_Canvas {
     this._updateUniforms = updateUniforms;
   }
   onResize(device, size) { /* grid is resolution-independent */ }
+  
   onFrame(device, context, timestamp) {
     // Typical WebGPU frame: begin pass, bind pipeline + resources, draw, end pass, submit.
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginRenderPass(this.defaultRenderPassDescriptor);
+    
+    // Draw the grid
     if (this.pipeline) {
       pass.setPipeline(this.pipeline);
       pass.setBindGroup(0, this.frameBindGroup);
@@ -241,8 +247,145 @@ export class WebGpu_Canvas {
       pass.setIndexBuffer(this.indexBuffer, 'uint32');
       pass.drawIndexed(6);
     }
+    
+    // Draw all dynamic meshes
+    for (const mesh of this.meshes) {
+      if (mesh.pipeline && mesh.vertexBuffer && mesh.indexBuffer) {
+        pass.setPipeline(mesh.pipeline);
+        pass.setBindGroup(0, this.frameBindGroup);
+        pass.setBindGroup(1, mesh.bindGroup);
+        pass.setVertexBuffer(0, mesh.vertexBuffer);
+        pass.setIndexBuffer(mesh.indexBuffer, 'uint16');
+        pass.drawIndexed(mesh.indexCount);
+      }
+    }
+    
     pass.end();
     device.queue.submit([encoder.finish()]);
+  }
+  
+  // Add a mesh to the scene
+  addMesh(meshData) {
+    if (!this.device) {
+      console.error('WebGPU device not initialized');
+      return;
+    }
+    
+    const { id, vertices, indices, color } = meshData;
+    
+    // Create vertex buffer
+    const vertexArray = new Float32Array(vertices);
+    const vertexBuffer = this.device.createBuffer({
+      size: vertexArray.byteLength,
+      usage: GPUBufferUsage.VERTEX,
+      mappedAtCreation: true
+    });
+    new Float32Array(vertexBuffer.getMappedRange()).set(vertexArray);
+    vertexBuffer.unmap();
+    
+    // Create index buffer
+    const indexArray = new Uint16Array(indices);
+    const indexBuffer = this.device.createBuffer({
+      size: indexArray.byteLength,
+      usage: GPUBufferUsage.INDEX,
+      mappedAtCreation: true
+    });
+    new Uint16Array(indexBuffer.getMappedRange()).set(indexArray);
+    indexBuffer.unmap();
+    
+    // Create uniform buffer for mesh color
+    const uniformArray = new ArrayBuffer(16 * Float32Array.BYTES_PER_ELEMENT);
+    const colorView = new Float32Array(uniformArray, 0, 4);
+    const lineWidthView = new Float32Array(uniformArray, 32, 2);
+    
+    // Set solid color (no grid pattern for cubes)
+    colorView.set([color.r, color.g, color.b, color.a]);
+    lineWidthView.set([0, 0]); // No grid lines on cubes
+    
+    const uniformBuffer = this.device.createBuffer({
+      size: uniformArray.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this.device.queue.writeBuffer(uniformBuffer, 0, uniformArray);
+    
+    // Reuse grid bind group layout
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      label: `Mesh ${id} BGL`,
+      entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }]
+    });
+    
+    const bindGroup = this.device.createBindGroup({
+      label: `Mesh ${id} BG`,
+      layout: bindGroupLayout,
+      entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+    });
+    
+    // Create pipeline for solid-colored mesh
+    this.device.createRenderPipelineAsync({
+      label: `Mesh ${id} Pipeline`,
+      layout: this.device.createPipelineLayout({
+        bindGroupLayouts: [this.frameBindGroupLayout, bindGroupLayout]
+      }),
+      vertex: {
+        module: this.device.createShaderModule({ code: MESH_SHADER }),
+        entryPoint: 'vertexMain',
+        buffers: [{
+          arrayStride: 12, // 3 floats (x, y, z)
+          attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }]
+        }]
+      },
+      fragment: {
+        module: this.device.createShaderModule({ code: MESH_SHADER }),
+        entryPoint: 'fragmentMain',
+        targets: [{ format: `${this.colorFormat}-srgb` }]
+      },
+      depthStencil: {
+        format: this.depthFormat,
+        depthWriteEnabled: true,
+        depthCompare: 'less-equal'
+      },
+      multisample: { count: this.sampleCount ?? 1 },
+      primitive: {
+        topology: 'triangle-list',
+        cullMode: 'back'
+      }
+    }).then((pipeline) => {
+      // Find and update the mesh with the pipeline
+      const mesh = this.meshes.find(m => m.id === id);
+      if (mesh) mesh.pipeline = pipeline;
+    });
+    
+    // Store mesh
+    this.meshes.push({
+      id,
+      vertexBuffer,
+      indexBuffer,
+      uniformBuffer,
+      bindGroup,
+      indexCount: indices.length,
+      pipeline: null // Will be set asynchronously
+    });
+  }
+  
+  removeMesh(meshId) {
+    const index = this.meshes.findIndex(m => m.id === meshId);
+    if (index >= 0) {
+      const mesh = this.meshes[index];
+      // Cleanup GPU resources
+      if (mesh.vertexBuffer) mesh.vertexBuffer.destroy();
+      if (mesh.indexBuffer) mesh.indexBuffer.destroy();
+      if (mesh.uniformBuffer) mesh.uniformBuffer.destroy();
+      this.meshes.splice(index, 1);
+    }
+  }
+  
+  clearAllMeshes() {
+    for (const mesh of this.meshes) {
+      if (mesh.vertexBuffer) mesh.vertexBuffer.destroy();
+      if (mesh.indexBuffer) mesh.indexBuffer.destroy();
+      if (mesh.uniformBuffer) mesh.uniformBuffer.destroy();
+    }
+    this.meshes = [];
   }
 }
 
@@ -469,6 +612,33 @@ const GRID_SHADER = `
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f { var grid = PristineGrid(in.uv, gridArgs.lineWidth); return mix(gridArgs.baseColor, gridArgs.lineColor, grid * gridArgs.lineColor.a); }
 `;
 
+// WGSL shader for solid-colored meshes (cubes, etc.)
+const MESH_SHADER = `
+  struct Camera { projection: mat4x4f, view: mat4x4f }
+  @group(0) @binding(0) var<uniform> camera: Camera;
+  
+  struct MeshUniforms { color: vec4f }
+  @group(1) @binding(0) var<uniform> meshUniforms: MeshUniforms;
+  
+  struct VertexIn { @location(0) pos: vec3f }
+  struct VertexOut { @builtin(position) pos: vec4f, @location(0) worldPos: vec3f }
+  
+  @vertex fn vertexMain(in: VertexIn) -> VertexOut {
+    var out: VertexOut;
+    out.pos = camera.projection * camera.view * vec4f(in.pos, 1.0);
+    out.worldPos = in.pos;
+    return out;
+  }
+  
+  @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
+    // Simple lighting: use world position for fake normals
+    let normal = normalize(cross(dpdx(in.worldPos), dpdy(in.worldPos)));
+    let lightDir = normalize(vec3f(1.0, 1.0, 1.0));
+    let diffuse = max(dot(normal, lightDir), 0.3); // Minimum ambient
+    return vec4f(meshUniforms.color.rgb * diffuse, meshUniforms.color.a);
+  }
+`;
+
 let demo = null;
 let frameIntervalId = 0;
 let dotNetRef = null;
@@ -574,7 +744,20 @@ export function updateGridOptions(options) {
 
 export function disposeGridDemo() {
   // Called by Blazor IAsyncDisposable to tear down timers and references.
-  if (frameIntervalId) { clearInterval(frameIntervalId); frameIntervalId = 0; }
+  if (frameIntervalId) { clearInterval(frameIntervalId); clearInterval = 0; }
   demo = null;
   dotNetRef = null;
+}
+
+// Export mesh management functions
+export function addMesh(meshData) {
+  if (demo) demo.addMesh(meshData);
+}
+
+export function removeMesh(meshId) {
+  if (demo) demo.removeMesh(meshId);
+}
+
+export function clearAllMeshes() {
+  if (demo) demo.clearAllMeshes();
 }

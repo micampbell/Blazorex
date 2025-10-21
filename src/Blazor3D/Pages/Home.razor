@@ -1,11 +1,12 @@
 ﻿@page "/"
 @using Blazor3D.Models
+@using Blazor3D.Components
 
 <PageTitle>WebGPU Grid Demo</PageTitle>
 
 <div class="page-container">
-    @* WebGPU canvas fills the viewport *@
-    <Blazor3D.Components.WebGPUCanvas Options="_currentOptions" />
+@* WebGPU canvas fills the viewport *@
+<Blazor3D.Components.WebGPUCanvas @ref="_canvasRef" Options="_currentOptions" />
 
     @* Settings panel overlays in top-right corner *@
     <Blazor3D.Components.WebGpuSettingsPanel 
@@ -59,49 +60,48 @@
 
 @code {
 	private WebGpuGridOptions _currentOptions = WebGpuGridOptions.Default;
+	private WebGPUCanvas? _canvasRef;
+	private int _cubeCounter = 0;
 
 	private void OnOptionsChanged(WebGpuGridOptions newOptions)
 	{
 		_currentOptions = newOptions;
 		StateHasChanged();
 	}
-	private void AddCube(MouseEventArgs args)
+	
+	private async Task AddCube(MouseEventArgs args)
 	{
-		// add cube to the WebGPUCanvas with a minumum vertex at (-5, -5, -5) and maximum vertex at (5, 5, 5)
-        var vertexBuffer = new Vertex[]
-        {
-            new Vertex(-5, -5, -5),
-           new Vertex(  5, -5, -5),
-          new Vertex(   5,  5, -5),
-          new Vertex(  -5,  5, -5),
-          new Vertex(  -5, -5,  5),
-          new Vertex(   5, -5,  5),
-          new Vertex(   5,  5,  5),
-          new Vertex(  -5,  5,  5)
-        };
-        var indexBuffer = new ushort[]
-        {
-            0, 1, 2, 2, 3, 0,
-            4, 5, 6, 6, 7, 4,
-            0, 1, 5, 5, 4, 0,
-            2, 3, 7, 7, 6, 2,
-            0, 3, 7, 7, 4, 0,
-            1, 2, 6, 6, 5, 1
-        };
-        // 
+		if (_canvasRef is null) return;
+
+		// Generate unique ID for this cube
+		var cubeId = $"cube-{_cubeCounter++}";
+
+		// Random position and size for variety
+		var random = Random.Shared;
+		var size = (float)(random.NextDouble() * 2 + 1); // 1-3 units
+		var x = (float)(random.NextDouble() * 10 - 5); // -5 to +5
+		var z = (float)(random.NextDouble() * 10 - 5); // -5 to +5
+		var y = size / 2; // Sit on the grid
+
+		// Random color
+		var color = new ColorRgba(
+			random.NextDouble(),
+			random.NextDouble(),
+			random.NextDouble(),
+			1.0
+		);
+
+		// Create cube mesh data
+		var cube = MeshData.CreateCube(
+			cubeId,
+			x - size / 2, y - size / 2, z - size / 2, // min
+			x + size / 2, y + size / 2, z + size / 2, // max
+			color
+		);
+
+		// Add to WebGPU scene
+		await _canvasRef.AddMeshAsync(cube);
 	}
-    public class Vertex
-    {
-        public double X { get; set; }
-        public double Y { get; set; }
-        public double Z { get; set; }
-        public Vertex(double x, double y, double z)
-        {
-            X = x;
-            Y = y;
-            Z = z;
-        }
-    }
 }
 
 
