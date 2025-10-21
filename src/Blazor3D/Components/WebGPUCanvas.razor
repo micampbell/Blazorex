@@ -15,51 +15,11 @@
 Or, put it in a container with a fixed height and keep the canvas at height: 100% inside that container, but the change above to tiny-webgpu-demo.js is the key fix.
 *@
 @code {
-    [Parameter]
-    public int Width { get; set; } = 800;
-
-    [Parameter]
-    public int Height { get; set; } = 600;
-
-    // Grid options translated to C#
-    [Parameter]
-    public ColorRgba SkyColor { get; set; } = new ColorRgba(0,0,0.5,1);
-
-    [Parameter]
-    public ColorRgba LineColor { get; set; } = new ColorRgba(1,1,1,1);
-
-    [Parameter]
-    public ColorRgba BaseColor { get; set; } = new ColorRgba(0.01,0.1,0.01,0.1);
-
-    private double _lineWidthX = 0.2;
-    private double _lineWidthY = 0.2;
-
-    [Parameter]
-    public double LineWidthX
-    {
-        get => _lineWidthX;
-        set => _lineWidthX = Math.Clamp(value, 0.0, 1.0); // Validate in C#
-    }
-
-    [Parameter]
-    public double LineWidthY
-    {
-        get => _lineWidthY;
-        set => _lineWidthY = Math.Clamp(value, 0.0, 1.0); // Validate in C#
-    }
-
-    // Camera / device configuration 
-    [Parameter]
-    public int SampleCount { get; set; } = 4;
-
-    [Parameter]
-    public double Fov { get; set; } = Math.PI * 0.5; // radians
-
-    [Parameter]
-    public double ZNear { get; set; } = 0.01;
-
-    [Parameter]
-    public double ZFar { get; set; } = 128;
+/// <summary>
+/// WebGPU rendering options. Pass a configured instance to control grid appearance and camera.
+/// </summary>
+[Parameter]
+public WebGpuGridOptions Options { get; set; } = WebGpuGridOptions.Default;
 
     private ElementReference _canvasRef;
     private IJSObjectReference? _module;
@@ -91,26 +51,13 @@ Or, put it in a container with a fixed height and keep the canvas at height: 100
         // Guard: module must be loaded (happens after first render)
         if (_module is null) return;
 
-        var options = new WebGpuGridOptions
-        {
-            ClearColor = SkyColor,
-            LineColor = LineColor,
-            BaseColor = BaseColor,
-            LineWidthX = LineWidthX,
-            LineWidthY = LineWidthY,
-            SampleCount = SampleCount,
-            Fov = Fov,
-            ZNear = ZNear,
-            ZFar = ZFar
-        };
-
         if (isInitializing)
         {
-            await _module.InvokeVoidAsync("initGridDemo", _dotNetRef, _canvasRef, options);
+            await _module.InvokeVoidAsync("initGridDemo", _dotNetRef, _canvasRef, Options);
         }
         else
         {
-            await _module.InvokeVoidAsync("updateGridOptions", options);
+            await _module.InvokeVoidAsync("updateGridOptions", Options);
         }
     }
 

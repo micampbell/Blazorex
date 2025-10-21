@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using Blazor3D.Models
 
 <PageTitle>Home</PageTitle>
 
@@ -6,4 +7,25 @@
 
 Welcome to your new app.
 
+@* Use default options *@
 <Blazor3D.Components.WebGPUCanvas />
+
+@* Or customize with a specific configuration *@
+@*
+<Blazor3D.Components.WebGPUCanvas Options="_customOptions" />
+
+@code {
+    private WebGpuGridOptions _customOptions = new()
+    {
+        ClearColor = new ColorRgba(0.1, 0, 0.3, 1),  // Dark purple sky
+        LineColor = new ColorRgba(0, 1, 1, 1),        // Cyan lines
+        BaseColor = new ColorRgba(0, 0, 0, 0.5),      // Semi-transparent black base
+        LineWidthX = 0.1,
+        LineWidthY = 0.1,
+        SampleCount = 4,
+        Fov = Math.PI * 0.4,  // Narrower field of view
+        ZNear = 0.01,
+        ZFar = 200
+    };
+}
+*@

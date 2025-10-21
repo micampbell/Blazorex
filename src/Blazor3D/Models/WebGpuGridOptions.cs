@@ -6,14 +6,50 @@ namespace Blazor3D.Models;
 /// </summary>
 public record WebGpuGridOptions
 {
+    /// <summary>Default configuration with sensible values for a basic grid.</summary>
+    public static readonly WebGpuGridOptions Default = new()
+    {
+        ClearColor = new ColorRgba(0, 0, 0.5, 1),
+        LineColor = new ColorRgba(1, 1, 1, 1),
+        BaseColor = new ColorRgba(0.01, 0.1, 0.01, 0.1),
+        LineWidthX = 0.2,
+        LineWidthY = 0.2,
+        SampleCount = 4,
+        Fov = Math.PI * 0.5,
+        ZNear = 0.01,
+        ZFar = 128
+    };
+
     public required ColorRgba ClearColor { get; init; }
     public required ColorRgba LineColor { get; init; }
     public required ColorRgba BaseColor { get; init; }
-    public required double LineWidthX { get; init; }
-    public required double LineWidthY { get; init; }
+
+    private double _lineWidthX;
+    private double _lineWidthY;
+
+    /// <summary>Grid line width in X direction (0.0 to 1.0).</summary>
+    public required double LineWidthX
+    {
+        get => _lineWidthX;
+        init => _lineWidthX = Math.Clamp(value, 0.0, 1.0);
+    }
+
+    /// <summary>Grid line width in Y direction (0.0 to 1.0).</summary>
+    public required double LineWidthY
+    {
+        get => _lineWidthY;
+        init => _lineWidthY = Math.Clamp(value, 0.0, 1.0);
+    }
+
     public required int SampleCount { get; init; }
+
+    /// <summary>Field of view in radians.</summary>
     public required double Fov { get; init; }
+
+    /// <summary>Near clipping plane distance.</summary>
     public required double ZNear { get; init; }
+
+    /// <summary>Far clipping plane distance.</summary>
     public required double ZFar { get; init; }
 }
 
