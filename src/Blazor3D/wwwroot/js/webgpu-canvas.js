@@ -33,7 +33,7 @@ injectedStyle.innerText = `
   html, body { height: 100%; margin: 0; font-family: sans-serif; }
   body { height: 100%; background-color: #222222; }
   .webgpu-canvas { display: block; width: 100%; height: auto; margin: 0; touch-action: none; }
-  .error { position: absolute; z-index: 2; inset: 9em 3em; margin: 0; padding: 0; color: #FF8888; }
+  .error { position: absolute, z-index: 2; inset: 9em 3em; margin: 0; padding: 0; color: #FF8888; }
 `;
 document.head.appendChild(injectedStyle);
 
@@ -254,14 +254,14 @@ export class WebGpu_Canvas {
         pass.setPipeline(mesh.pipeline);
         pass.setBindGroup(0, this.frameBindGroup);
         
-        // Only set bind group 1 if not using vertex colors
+        // Set bind group 1 only for uniform color mode
         if (!mesh.hasVertexColors && mesh.bindGroup) {
           pass.setBindGroup(1, mesh.bindGroup);
         }
         
         pass.setVertexBuffer(0, mesh.vertexBuffer);
         
-        // Set color buffer if using vertex colors
+        // Set color buffer if using any vertex colors (per-vertex or per-triangle)
         if (mesh.hasVertexColors && mesh.colorBuffer) {
           pass.setVertexBuffer(1, mesh.colorBuffer);
         }
@@ -284,6 +284,11 @@ export class WebGpu_Canvas {
     
     const { id, vertices, indices, colors } = meshData;
     
+    console.log(`[addMesh] Adding mesh "${id}":`);
+    console.log(`  - Vertices: ${vertices.length / 3} (${vertices.length} floats)`);
+    console.log(`  - Indices: ${indices.length} (${indices.length / 3} triangles)`);
+    console.log(`  - Colors: ${colors ? colors.length : 0}`);
+    
     // Check if we have per-vertex colors
     const hasVertexColors = colors && colors.length > 0;
     
@@ -297,8 +302,15 @@ export class WebGpu_Canvas {
     new Float32Array(vertexBuffer.getMappedRange()).set(vertexArray);
     vertexBuffer.unmap();
     
-    // Create color buffer if colors are provided
+    // Create color storage buffer if colors are provided (per-triangle colors)
     let colorBuffer = null;
+    let colorStorageBuffer = null;
+    let faceColorBindGroup = null;
+    const isPerTriangleColor = hasVertexColors && (colors.length * 3 === indices.length);
+    
+    console.log(`  - Mode: ${isPerTriangleColor ? 'PER-TRIANGLE' : (hasVertexColors ? 'PER-VERTEX' : 'UNIFORM')}`);
+    console.log(`  - Check: ${colors.length} * 3 === ${indices.length}? ${colors.length * 3 === indices.length}`);
+
     if (hasVertexColors) {
       // Convert ColorRgba objects to flat float array
       const colorArray = new Float32Array(colors.length * 4);
@@ -309,13 +321,35 @@ export class WebGpu_Canvas {
         colorArray[i * 4 + 3] = colors[i].a;
       }
       
-      colorBuffer = this.device.createBuffer({
-        size: colorArray.byteLength,
-        usage: GPUBufferUsage.VERTEX,
-        mappedAtCreation: true
-      });
-      new Float32Array(colorBuffer.getMappedRange()).set(colorArray);
-      colorBuffer.unmap();
+      if (isPerTriangleColor) {
+        // Per-triangle colors: expand to per-vertex by duplicating each triangle color 3 times
+        // Since colors.length = triangle count, and each triangle has 3 vertices
+        const perVertexColorArray = new Float32Array(indices.length * 4);
+        for (let i = 0; i < indices.length; i++) {
+          const triangleIndex = Math.floor(i / 3);
+          perVertexColorArray[i * 4 + 0] = colorArray[triangleIndex * 4 + 0];
+          perVertexColorArray[i * 4 + 1] = colorArray[triangleIndex * 4 + 1];
+          perVertexColorArray[i * 4 + 2] = colorArray[triangleIndex * 4 + 2];
+          perVertexColorArray[i * 4 + 3] = colorArray[triangleIndex * 4 + 3];
+        }
+        
+        colorBuffer = this.device.createBuffer({
+          size: perVertexColorArray.byteLength,
+          usage: GPUBufferUsage.VERTEX,
+          mappedAtCreation: true
+        });
+        new Float32Array(colorBuffer.getMappedRange()).set(perVertexColorArray);
+        colorBuffer.unmap();
+      } else {
+        // Per-vertex colors: use vertex buffer (legacy)
+        colorBuffer = this.device.createBuffer({
+          size: colorArray.byteLength,
+          usage: GPUBufferUsage.VERTEX,
+          mappedAtCreation: true
+        });
+        new Float32Array(colorBuffer.getMappedRange()).set(colorArray);
+        colorBuffer.unmap();
+      }
     }
     
     // Create index buffer
@@ -328,7 +362,7 @@ export class WebGpu_Canvas {
     new Uint16Array(indexBuffer.getMappedRange()).set(indexArray);
     indexBuffer.unmap();
     
-    // Create uniform buffer (only needed if no per-vertex colors)
+    // Create uniform buffer (only needed if no colors)
     let uniformBuffer = null;
     let bindGroup = null;
     
@@ -356,6 +390,7 @@ export class WebGpu_Canvas {
     }
     
     // Create appropriate shader based on color mode
+    // Both per-triangle and per-vertex use the same shader now (flat interpolation handles per-triangle)
     const shaderCode = hasVertexColors ? MESH_SHADER_VERTEX_COLOR : MESH_SHADER;
     const shaderModule = this.device.createShaderModule({ code: shaderCode });
     
@@ -367,7 +402,7 @@ export class WebGpu_Canvas {
       }
     ];
     
-    // Add color buffer layout if using vertex colors
+    // Add color buffer layout if using any vertex colors
     if (hasVertexColors) {
       vertexBufferLayout.push({
         arrayStride: 16, // 4 floats (r, g, b, a)
@@ -379,7 +414,7 @@ export class WebGpu_Canvas {
     const pipelineLayout = hasVertexColors
       ? this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout] })
       : this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout, bindGroup.layout] });
-    
+
     this.device.createRenderPipelineAsync({
       label: `Mesh ${id} Pipeline`,
       layout: pipelineLayout,
@@ -404,8 +439,16 @@ export class WebGpu_Canvas {
         cullMode: 'back'
       }
     }).then((pipeline) => {
+      console.log(`[addMesh] Pipeline created successfully for "${id}"`);
       const mesh = this.meshes.find(m => m.id === id);
-      if (mesh) mesh.pipeline = pipeline;
+      if (mesh) {
+        mesh.pipeline = pipeline;
+        console.log(`[addMesh] Pipeline assigned to mesh "${id}"`);
+      } else {
+        console.error(`[addMesh] Mesh "${id}" not found after pipeline creation!`);
+      }
+    }).catch((error) => {
+      console.error(`[addMesh] Pipeline creation FAILED for "${id}":`, error);
     });
     
     // Store mesh
@@ -417,8 +460,9 @@ export class WebGpu_Canvas {
       uniformBuffer,
       bindGroup,
       hasVertexColors,
+      isPerTriangleColor,
       indexCount: indices.length,
-      pipeline: null // Will be set asynchronously
+      pipeline: null
     });
   }
   
@@ -426,7 +470,6 @@ export class WebGpu_Canvas {
     const index = this.meshes.findIndex(m => m.id === meshId);
     if (index >= 0) {
       const mesh = this.meshes[index];
-      // Cleanup GPU resources
       if (mesh.vertexBuffer) mesh.vertexBuffer.destroy();
       if (mesh.colorBuffer) mesh.colorBuffer.destroy();
       if (mesh.indexBuffer) mesh.indexBuffer.destroy();
@@ -592,19 +635,11 @@ constrainDistance = true;
     this.#dirty = true;
   }
 
-  get target() {
-    return [this.#target[0], this.#target[1], this.#target[2]];
-  }
-
   set target(v) {
     this.#target[0] = v[0];
     this.#target[1] = v[1];
     this.#target[2] = v[2];
     this.#dirty = true;
-  }
-
-  get distance() {
-    return this.#distance[2];
   }
 
   set distance(value) {
@@ -696,7 +731,7 @@ const MESH_SHADER = `
   }
 `;
 
-// WGSL shader for meshes with per-vertex colors
+// WGSL shader for meshes with per-face flat colors (engineering/CAD use)
 const MESH_SHADER_VERTEX_COLOR = `
   struct Camera { projection: mat4x4f, view: mat4x4f }
   @group(0) @binding(0) var<uniform> camera: Camera;
@@ -709,7 +744,7 @@ const MESH_SHADER_VERTEX_COLOR = `
   struct VertexOut {
     @builtin(position) pos: vec4f,
     @location(0) worldPos: vec3f,
-    @location(1) color: vec4f
+    @location(1) @interpolate(flat) color: vec4f  // FLAT = no interpolation = solid color per triangle
   }
   
   @vertex fn vertexMain(in: VertexIn) -> VertexOut {
@@ -721,10 +756,47 @@ const MESH_SHADER_VERTEX_COLOR = `
   }
   
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
-    // Simple lighting: use world position for fake normals
+    // Simple lighting: use screen-space derivatives for per-face normals
     let normal = normalize(cross(dpdx(in.worldPos), dpdy(in.worldPos)));
     let lightDir = normalize(vec3f(1.0, 1.0, 1.0));
     let diffuse = max(dot(normal, lightDir), 0.3); // Minimum ambient
+    
+    // Return solid color per triangle (no gradient due to flat interpolation)
+    return vec4f(in.color.rgb * diffuse, in.color.a);
+  }
+`;
+
+// WGSL shader for per-triangle flat colors (engineering - one color per triangle)
+const MESH_SHADER_TRIANGLE_COLOR = `
+  struct Camera { projection: mat4x4f, view: mat4x4f }
+  @group(0) @binding(0) var<uniform> camera: Camera;
+  
+  struct VertexIn {
+    @location(0) pos: vec3f,
+    @location(1) color: vec4f
+  }
+  
+  struct VertexOut {
+    @builtin(position) pos: vec4f,
+    @location(0) worldPos: vec3f,
+    @location(1) @interpolate(flat) color: vec4f  // FLAT = solid color per triangle
+  }
+  
+  @vertex fn vertexMain(in: VertexIn) -> VertexOut {
+    var out: VertexOut;
+    out.pos = camera.projection * camera.view * vec4f(in.pos, 1.0);
+    out.worldPos = in.pos;
+    out.color = in.color;
+    return out;
+  }
+  
+  @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
+    // Simple lighting
+    let normal = normalize(cross(dpdx(in.worldPos), dpdy(in.worldPos)));
+    let lightDir = normalize(vec3f(1.0, 1.0, 1.0));
+    let diffuse = max(dot(normal, lightDir), 0.3);
+    
+    // Return solid color per triangle
     return vec4f(in.color.rgb * diffuse, in.color.a);
   }
 `;
