@@ -15,10 +15,10 @@ public record MeshData
     public required ushort[] Indices { get; init; }
     
     /// <summary>Optional color for the mesh (RGBA, 0-1 range).</summary>
-    public ColorRgba Color { get; init; } = new ColorRgba(1, 0, 0, 1); // Default: red
+    public ColorRgba[] Colors { get; init; } 
     
     /// <summary>Creates a cube mesh with the specified bounds.</summary>
-    public static MeshData CreateCube(string id, float minX, float minY, float minZ, float maxX, float maxY, float maxZ, ColorRgba? color = null)
+    public static MeshData CreateCube(string id, float minX, float minY, float minZ, float maxX, float maxY, float maxZ)
     {
         // 8 vertices for a cube
         var vertices = new float[]
@@ -57,13 +57,28 @@ public record MeshData
             // Right face
             1, 5, 6,  6, 2, 1
         };
+        var colors = new ColorRgba[]
+        {
+            new ColorRgba(1, 0, 0, 1),
+            new ColorRgba(0, 1, 0, 1),
+            new ColorRgba(0, 0, 1, 1),
+            new ColorRgba(1, 1, 0, 1),
+            new ColorRgba(0, 1, 1, 1),
+            new ColorRgba(1, 0, 1, 1),
+            new ColorRgba(1, 0.2, 0.2, 1),
+            new ColorRgba(0.2, 1, 0.2, 1),
+            new ColorRgba(0.2, 0.2, 1, 1),
+            new ColorRgba(1, 1, 0.2, 1),
+            new ColorRgba(0.2, 1, 1, 1),
+            new ColorRgba(1, 0.2, 1, 1),
+        };
         
         return new MeshData
         {
             Id = id,
             Vertices = vertices,
             Indices = indices,
-            Color = color ?? new ColorRgba(1, 0, 0, 1)
+            Colors = colors
         };
     }
 }

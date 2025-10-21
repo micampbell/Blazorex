@@ -253,8 +253,19 @@ export class WebGpu_Canvas {
       if (mesh.pipeline && mesh.vertexBuffer && mesh.indexBuffer) {
         pass.setPipeline(mesh.pipeline);
         pass.setBindGroup(0, this.frameBindGroup);
-        pass.setBindGroup(1, mesh.bindGroup);
+        
+        // Only set bind group 1 if not using vertex colors
+        if (!mesh.hasVertexColors && mesh.bindGroup) {
+          pass.setBindGroup(1, mesh.bindGroup);
+        }
+        
         pass.setVertexBuffer(0, mesh.vertexBuffer);
+        
+        // Set color buffer if using vertex colors
+        if (mesh.hasVertexColors && mesh.colorBuffer) {
+          pass.setVertexBuffer(1, mesh.colorBuffer);
+        }
+        
         pass.setIndexBuffer(mesh.indexBuffer, 'uint16');
         pass.drawIndexed(mesh.indexCount);
       }
@@ -271,9 +282,12 @@ export class WebGpu_Canvas {
       return;
     }
     
-    const { id, vertices, indices, color } = meshData;
+    const { id, vertices, indices, colors } = meshData;
     
-    // Create vertex buffer
+    // Check if we have per-vertex colors
+    const hasVertexColors = colors && colors.length > 0;
+    
+    // Create vertex buffer (positions only)
     const vertexArray = new Float32Array(vertices);
     const vertexBuffer = this.device.createBuffer({
       size: vertexArray.byteLength,
@@ -282,6 +296,27 @@ export class WebGpu_Canvas {
     });
     new Float32Array(vertexBuffer.getMappedRange()).set(vertexArray);
     vertexBuffer.unmap();
+    
+    // Create color buffer if colors are provided
+    let colorBuffer = null;
+    if (hasVertexColors) {
+      // Convert ColorRgba objects to flat float array
+      const colorArray = new Float32Array(colors.length * 4);
+      for (let i = 0; i < colors.length; i++) {
+        colorArray[i * 4 + 0] = colors[i].r;
+        colorArray[i * 4 + 1] = colors[i].g;
+        colorArray[i * 4 + 2] = colors[i].b;
+        colorArray[i * 4 + 3] = colors[i].a;
+      }
+      
+      colorBuffer = this.device.createBuffer({
+        size: colorArray.byteLength,
+        usage: GPUBufferUsage.VERTEX,
+        mappedAtCreation: true
+      });
+      new Float32Array(colorBuffer.getMappedRange()).set(colorArray);
+      colorBuffer.unmap();
+    }
     
     // Create index buffer
     const indexArray = new Uint16Array(indices);
@@ -293,49 +328,68 @@ export class WebGpu_Canvas {
     new Uint16Array(indexBuffer.getMappedRange()).set(indexArray);
     indexBuffer.unmap();
     
-    // Create uniform buffer for mesh color
-    const uniformArray = new ArrayBuffer(16 * Float32Array.BYTES_PER_ELEMENT);
-    const colorView = new Float32Array(uniformArray, 0, 4);
-    const lineWidthView = new Float32Array(uniformArray, 32, 2);
+    // Create uniform buffer (only needed if no per-vertex colors)
+    let uniformBuffer = null;
+    let bindGroup = null;
     
-    // Set solid color (no grid pattern for cubes)
-    colorView.set([color.r, color.g, color.b, color.a]);
-    lineWidthView.set([0, 0]); // No grid lines on cubes
+    if (!hasVertexColors) {
+      const uniformArray = new ArrayBuffer(16 * Float32Array.BYTES_PER_ELEMENT);
+      const colorView = new Float32Array(uniformArray, 0, 4);
+      colorView.set([1.0, 0.0, 0.0, 1.0]); // Default red
+      
+      uniformBuffer = this.device.createBuffer({
+        size: uniformArray.byteLength,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+      });
+      this.device.queue.writeBuffer(uniformBuffer, 0, uniformArray);
+      
+      const bindGroupLayout = this.device.createBindGroupLayout({
+        label: `Mesh ${id} BGL`,
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }]
+      });
+      
+      bindGroup = this.device.createBindGroup({
+        label: `Mesh ${id} BG`,
+        layout: bindGroupLayout,
+        entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+      });
+    }
     
-    const uniformBuffer = this.device.createBuffer({
-      size: uniformArray.byteLength,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-    });
-    this.device.queue.writeBuffer(uniformBuffer, 0, uniformArray);
+    // Create appropriate shader based on color mode
+    const shaderCode = hasVertexColors ? MESH_SHADER_VERTEX_COLOR : MESH_SHADER;
+    const shaderModule = this.device.createShaderModule({ code: shaderCode });
     
-    // Reuse grid bind group layout
-    const bindGroupLayout = this.device.createBindGroupLayout({
-      label: `Mesh ${id} BGL`,
-      entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }]
-    });
+    // Build vertex buffer layout
+    const vertexBufferLayout = [
+      {
+        arrayStride: 12, // 3 floats (x, y, z)
+        attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }]
+      }
+    ];
     
-    const bindGroup = this.device.createBindGroup({
-      label: `Mesh ${id} BG`,
-      layout: bindGroupLayout,
-      entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
-    });
+    // Add color buffer layout if using vertex colors
+    if (hasVertexColors) {
+      vertexBufferLayout.push({
+        arrayStride: 16, // 4 floats (r, g, b, a)
+        attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x4' }]
+      });
+    }
     
-    // Create pipeline for solid-colored mesh
+    // Create pipeline
+    const pipelineLayout = hasVertexColors
+      ? this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout] })
+      : this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout, bindGroup.layout] });
+    
     this.device.createRenderPipelineAsync({
       label: `Mesh ${id} Pipeline`,
-      layout: this.device.createPipelineLayout({
-        bindGroupLayouts: [this.frameBindGroupLayout, bindGroupLayout]
-      }),
+      layout: pipelineLayout,
       vertex: {
-        module: this.device.createShaderModule({ code: MESH_SHADER }),
+        module: shaderModule,
         entryPoint: 'vertexMain',
-        buffers: [{
-          arrayStride: 12, // 3 floats (x, y, z)
-          attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }]
-        }]
+        buffers: vertexBufferLayout
       },
       fragment: {
-        module: this.device.createShaderModule({ code: MESH_SHADER }),
+        module: shaderModule,
         entryPoint: 'fragmentMain',
         targets: [{ format: `${this.colorFormat}-srgb` }]
       },
@@ -350,7 +404,6 @@ export class WebGpu_Canvas {
         cullMode: 'back'
       }
     }).then((pipeline) => {
-      // Find and update the mesh with the pipeline
       const mesh = this.meshes.find(m => m.id === id);
       if (mesh) mesh.pipeline = pipeline;
     });
@@ -359,9 +412,11 @@ export class WebGpu_Canvas {
     this.meshes.push({
       id,
       vertexBuffer,
+      colorBuffer,
       indexBuffer,
       uniformBuffer,
       bindGroup,
+      hasVertexColors,
       indexCount: indices.length,
       pipeline: null // Will be set asynchronously
     });
@@ -373,6 +428,7 @@ export class WebGpu_Canvas {
       const mesh = this.meshes[index];
       // Cleanup GPU resources
       if (mesh.vertexBuffer) mesh.vertexBuffer.destroy();
+      if (mesh.colorBuffer) mesh.colorBuffer.destroy();
       if (mesh.indexBuffer) mesh.indexBuffer.destroy();
       if (mesh.uniformBuffer) mesh.uniformBuffer.destroy();
       this.meshes.splice(index, 1);
@@ -382,6 +438,7 @@ export class WebGpu_Canvas {
   clearAllMeshes() {
     for (const mesh of this.meshes) {
       if (mesh.vertexBuffer) mesh.vertexBuffer.destroy();
+      if (mesh.colorBuffer) mesh.colorBuffer.destroy();
       if (mesh.indexBuffer) mesh.indexBuffer.destroy();
       if (mesh.uniformBuffer) mesh.uniformBuffer.destroy();
     }
@@ -636,6 +693,39 @@ const MESH_SHADER = `
     let lightDir = normalize(vec3f(1.0, 1.0, 1.0));
     let diffuse = max(dot(normal, lightDir), 0.3); // Minimum ambient
     return vec4f(meshUniforms.color.rgb * diffuse, meshUniforms.color.a);
+  }
+`;
+
+// WGSL shader for meshes with per-vertex colors
+const MESH_SHADER_VERTEX_COLOR = `
+  struct Camera { projection: mat4x4f, view: mat4x4f }
+  @group(0) @binding(0) var<uniform> camera: Camera;
+  
+  struct VertexIn {
+    @location(0) pos: vec3f,
+    @location(1) color: vec4f
+  }
+  
+  struct VertexOut {
+    @builtin(position) pos: vec4f,
+    @location(0) worldPos: vec3f,
+    @location(1) color: vec4f
+  }
+  
+  @vertex fn vertexMain(in: VertexIn) -> VertexOut {
+    var out: VertexOut;
+    out.pos = camera.projection * camera.view * vec4f(in.pos, 1.0);
+    out.worldPos = in.pos;
+    out.color = in.color;
+    return out;
+  }
+  
+  @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
+    // Simple lighting: use world position for fake normals
+    let normal = normalize(cross(dpdx(in.worldPos), dpdy(in.worldPos)));
+    let lightDir = normalize(vec3f(1.0, 1.0, 1.0));
+    let diffuse = max(dot(normal, lightDir), 0.3); // Minimum ambient
+    return vec4f(in.color.rgb * diffuse, in.color.a);
   }
 `;
 

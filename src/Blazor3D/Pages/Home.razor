@@ -83,20 +83,12 @@
 		var z = (float)(random.NextDouble() * 10 - 5); // -5 to +5
 		var y = size / 2; // Sit on the grid
 
-		// Random color
-		var color = new ColorRgba(
-			random.NextDouble(),
-			random.NextDouble(),
-			random.NextDouble(),
-			1.0
-		);
-
-		// Create cube mesh data
+		// Create cube mesh data with per-vertex colors
+		// The CreateCube method now includes a rainbow color array
 		var cube = MeshData.CreateCube(
 			cubeId,
 			x - size / 2, y - size / 2, z - size / 2, // min
-			x + size / 2, y + size / 2, z + size / 2, // max
-			color
+			x + size / 2, y + size / 2, z + size / 2  // max
 		);
 
 		// Add to WebGPU scene
