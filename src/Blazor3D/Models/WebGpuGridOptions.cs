@@ -1,6 +1,18 @@
 namespace Blazor3D.Models;
 
 /// <summary>
+/// Projection type for camera rendering.
+/// </summary>
+public enum ProjectionType
+{
+    /// <summary>Perspective projection with vanishing points (realistic, default for games/visualization).</summary>
+    Perspective,
+    
+    /// <summary>Orthographic projection with parallel lines (technical drawings, CAD, engineering).</summary>
+    Orthographic
+}
+
+/// <summary>
 /// Options passed from C# to JavaScript for WebGPU grid rendering.
 /// Matches the shape expected by webgpu-canvas.js initGridDemo/updateGridOptions.
 /// </summary>
@@ -15,7 +27,9 @@ public record WebGpuGridOptions
         LineWidthX = 0.2,
         LineWidthY = 0.2,
         SampleCount = 4,
+        ProjectionType = ProjectionType.Perspective,
         Fov = Math.PI * 0.5,
+        OrthoSize = 5.0,
         ZNear = 0.01,
         ZFar = 128
     };
@@ -43,8 +57,14 @@ public record WebGpuGridOptions
 
     public required int SampleCount { get; init; }
 
-    /// <summary>Field of view in radians.</summary>
+    /// <summary>Camera projection type (Perspective or Orthographic).</summary>
+    public required ProjectionType ProjectionType { get; init; }
+
+    /// <summary>Field of view in radians (used for Perspective projection).</summary>
     public required double Fov { get; init; }
+
+    /// <summary>Half-height of view in world units (used for Orthographic projection).</summary>
+    public required double OrthoSize { get; init; }
 
     /// <summary>Near clipping plane distance.</summary>
     public required double ZNear { get; init; }

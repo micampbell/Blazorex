@@ -78,10 +78,36 @@
                 <h3>Camera</h3>
                 
                 <div class="setting-item">
-                    <label>Field of View: @(Options.Fov * 180 / Math.PI).ToString("F0")°</label>
-                    <input type="range" min="@(Math.PI * 0.2)" max="@(Math.PI * 0.9)" step="0.01" value="@Options.Fov" 
-                           @oninput="@(e => UpdateFov(ParseDouble(e.Value)))" />
+                    <label title="Perspective: realistic with vanishing points. Orthographic: parallel projection for technical drawings.">
+                        Projection Type
+                        <span class="info-icon" title="Perspective for realism, Orthographic for CAD/engineering.">?</span>
+                    </label>
+                    <select value="@((int)Options.ProjectionType)" @onchange="HandleProjectionTypeChange">
+                        <option value="0">Perspective (Realistic)</option>
+                        <option value="1">Orthographic (CAD/Technical)</option>
+                    </select>
                 </div>
+
+                @if (Options.ProjectionType == ProjectionType.Perspective)
+                {
+                    <div class="setting-item">
+                        <label title="Controls perspective distortion. Lower values = narrower view (more zoom), higher = wider view.">
+                            Field of View: @(Options.Fov * 180 / Math.PI).ToString("F0")°
+                        </label>
+                        <input type="range" min="@(Math.PI * 0.2)" max="@(Math.PI * 0.9)" step="0.01" value="@Options.Fov" 
+                               @oninput="@(e => UpdateFov(ParseDouble(e.Value)))" />
+                    </div>
+                }
+                else
+                {
+                    <div class="setting-item">
+                        <label title="Half-height of visible area in world units. Lower = more zoom, higher = wider view.">
+                            Orthographic Size: @Options.OrthoSize.ToString("F1")
+                        </label>
+                        <input type="range" min="1" max="20" step="0.1" value="@Options.OrthoSize" 
+                               @oninput="@(e => UpdateOrthoSize(ParseDouble(e.Value)))" />
+                    </div>
+                }
 
                 <div class="setting-item">
                     <label>Near Plane: @Options.ZNear.ToString("F2")</label>
@@ -100,15 +126,27 @@
                 <h3>Rendering</h3>
                 
                 <div class="setting-item">
-                    <label>MSAA Sample Count</label>
+                    <label title="Multi-Sample Anti-Aliasing: Smooths jagged edges on grid lines. Higher = smoother but more GPU intensive.">
+                        MSAA Sample Count 
+                        <span class="info-icon" title="Smooths jagged edges. Requires page refresh to apply.">?</span>
+                    </label>
                     <select value="@Options.SampleCount" @onchange="HandleSampleCountChange">
-                        <option value="1">1x (No MSAA)</option>
-                        <option value="2">2x</option>
-                        <option value="4">4x</option>
-                        <option value="8">8x</option>
+                        <option value="1">1x - No anti-aliasing (fastest)</option>
+                        <option value="2">2x - Slight smoothing</option>
+                        <option value="4">4x - Smooth (recommended)</option>
+                        <option value="8">8x - Very smooth (slower)</option>
                     </select>
+                    <small class="setting-note">?? Requires page refresh to take effect</small>
                 </div>
             </div>
+
+            @if (_showMsaaRefreshPrompt)
+            {
+                <div class="refresh-prompt">
+                    <p>?? MSAA setting changed</p>
+                    <button @onclick="RefreshPage" class="refresh-button">Refresh Page Now</button>
+                </div>
+            }
 
             <div class="setting-actions">
                 <button @onclick="ResetToDefaults">Reset to Defaults</button>
@@ -193,6 +231,27 @@
         margin-bottom: 6px;
         font-size: 12px;
         color: #ccc;
+        cursor: help;
+    }
+
+    .info-icon {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        line-height: 14px;
+        text-align: center;
+        font-size: 11px;
+        color: #0d6efd;
+        cursor: help;
+        margin-left: 4px;
+    }
+
+    .setting-note {
+        display: block;
+        margin-top: 4px;
+        font-size: 10px;
+        color: #ffc107;
+        font-style: italic;
     }
 
     .setting-item input[type="range"] {
@@ -268,6 +327,38 @@
 
     .setting-actions button:hover {
         background: #0b5ed7;
+    }
+
+    .refresh-prompt {
+        margin: 16px 0;
+        padding: 12px;
+        background: rgba(255, 193, 7, 0.15);
+        border: 1px solid #ffc107;
+        border-radius: 4px;
+        text-align: center;
+    }
+
+    .refresh-prompt p {
+        margin: 0 0 8px 0;
+        font-size: 12px;
+        color: #ffc107;
+        font-weight: 600;
+    }
+
+    .refresh-button {
+        padding: 6px 16px;
+        background: #ffc107;
+        border: none;
+        border-radius: 4px;
+        color: #000;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .refresh-button:hover {
+        background: #ffca2c;
     }
 </style>
 
@@ -349,6 +440,12 @@
         await OptionsChanged.InvokeAsync(Options);
     }
 
+    private async Task UpdateOrthoSize(double value)
+    {
+        Options = Options with { OrthoSize = value };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
     private async Task UpdateZNear(double value)
     {
         Options = Options with { ZNear = value };
@@ -359,6 +456,20 @@
     {
         Options = Options with { ZFar = value };
         await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task UpdateProjectionType(ProjectionType value)
+    {
+        Options = Options with { ProjectionType = value };
+        await OptionsChanged.InvokeAsync(Options);
+    }
+
+    private async Task HandleProjectionTypeChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value))
+        {
+            await UpdateProjectionType((ProjectionType)value);
+        }
     }
 
     private async Task UpdateSampleCount(int value)
@@ -372,12 +483,25 @@
         if (int.TryParse(e.Value?.ToString(), out var value))
         {
             await UpdateSampleCount(value);
+            _showMsaaRefreshPrompt = true;
         }
+    }
+
+    private bool _showMsaaRefreshPrompt = false;
+
+    private void RefreshPage()
+    {
+        // Trigger browser reload to reinitialize WebGPU with new MSAA setting
+        Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
     }
 
     private async Task ResetToDefaults()
     {
         Options = WebGpuGridOptions.Default;
         await OptionsChanged.InvokeAsync(Options);
+        _showMsaaRefreshPrompt = false;
     }
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
 }

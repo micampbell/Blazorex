@@ -55,7 +55,11 @@ export class WebGpu_Canvas {
   depthFormat = 'depth24plus';
   sampleCount = 4;
   clearColor = { r: 0, g: 0, b: 0, a: 1.0 };
-  fov = Math.PI * 0.5; zNear = 0.01; zFar = 128;
+  projectionType = 'perspective'; // 'perspective' or 'orthographic'
+  fov = Math.PI * 0.5;
+  orthoSize = 5.0; // Half-height of orthographic view
+  zNear = 0.01;
+  zFar = 128;
 
   // Grid pipeline state (previously in GridDemo)
   vertexBuffer = null;
@@ -118,7 +122,32 @@ export class WebGpu_Canvas {
     }
   }
 
-  updateProjection() { mat4.perspectiveZO(this.#projectionMatrix, this.fov, this.canvas.width / this.canvas.height, this.zNear, this.zFar); }
+  updateProjection() {
+    const aspect = this.canvas.width / this.canvas.height;
+    
+    if (this.projectionType === 'orthographic') {
+      // Orthographic projection: no perspective distortion
+      // Objects stay same size regardless of distance
+      mat4.ortho(
+        this.#projectionMatrix,
+        -this.orthoSize * aspect, // left
+         this.orthoSize * aspect, // right
+        -this.orthoSize,          // bottom
+         this.orthoSize,          // top
+         this.zNear,
+         this.zFar
+      );
+    } else {
+      // Perspective projection: realistic vanishing points
+      mat4.perspectiveZO(
+        this.#projectionMatrix,
+        this.fov,
+        aspect,
+        this.zNear,
+        this.zFar
+      );
+    }
+  }
   get frameMs() { let avg = 0; for (const v of this.#frameMs) { if (v === undefined) return 0; avg += v; } return avg / this.#frameMs.length; }
 
   async #initWebGPU() {
@@ -455,9 +484,17 @@ export function initGridDemo(dotnet, canvasEl, options) {
   // Apply base options including render config
   if (options) {
     if (typeof options.sampleCount === 'number') demo.sampleCount = options.sampleCount;
+    
+    // Projection type (convert C# enum value to lowercase string)
+    if (typeof options.projectionType === 'number') {
+      demo.projectionType = options.projectionType === 0 ? 'perspective' : 'orthographic';
+    }
+    
     if (typeof options.fov === 'number') demo.fov = options.fov;
+    if (typeof options.orthoSize === 'number') demo.orthoSize = options.orthoSize;
     if (typeof options.zNear === 'number') demo.zNear = options.zNear;
     if (typeof options.zFar === 'number') demo.zFar = options.zFar;
+    
     Object.assign(demo.gridOptions, options);
     if (typeof demo._updateUniforms === 'function') demo._updateUniforms();
   }
@@ -476,12 +513,63 @@ export function initGridDemo(dotnet, canvasEl, options) {
 export function updateGridOptions(options) {
   // Called by Blazor when parameters change. Uniforms are updated immediately.
   if (!demo || !options) return;
+  
+  // Track if camera projection needs updating
+  let projectionNeedsUpdate = false;
+  
   if (typeof options.sampleCount === 'number') demo.sampleCount = options.sampleCount; // may require rebuild to fully apply
-  if (typeof options.fov === 'number') demo.fov = options.fov;
-  if (typeof options.zNear === 'number') demo.zNear = options.zNear;
-  if (typeof options.zFar === 'number') demo.zFar = options.zFar;
+  
+  // Projection type (convert C# enum: 0=Perspective, 1=Orthographic)
+  if (typeof options.projectionType === 'number') {
+    const newType = options.projectionType === 0 ? 'perspective' : 'orthographic';
+    if (demo.projectionType !== newType) {
+      demo.projectionType = newType;
+      projectionNeedsUpdate = true;
+    }
+  }
+  
+  if (typeof options.fov === 'number') {
+    demo.fov = options.fov;
+    projectionNeedsUpdate = true;
+  }
+  
+  if (typeof options.orthoSize === 'number') {
+    demo.orthoSize = options.orthoSize;
+    projectionNeedsUpdate = true;
+  }
+  
+  if (typeof options.zNear === 'number') {
+    demo.zNear = options.zNear;
+    projectionNeedsUpdate = true;
+  }
+  
+  if (typeof options.zFar === 'number') {
+    demo.zFar = options.zFar;
+    projectionNeedsUpdate = true;
+  }
+  
+  // Update projection matrix if any camera parameters changed
+  if (projectionNeedsUpdate) {
+    demo.updateProjection();
+  }
+  
+  // Update grid options (colors, line widths)
   Object.assign(demo.gridOptions, options);
-  if (typeof demo._updateUniforms === 'function') demo._updateUniforms();
+  
+  // Update GPU uniforms if the function is available
+  if (typeof demo._updateUniforms === 'function') {
+    demo._updateUniforms();
+  }
+  
+  // Update render pass clear color if clearColor changed
+  if (options.clearColor) {
+    demo.clearColor = options.clearColor;
+    // Reallocate render targets to apply new clear color
+    if (demo.device && demo.canvas) {
+      const size = { width: demo.canvas.width, height: demo.canvas.height };
+      demo.colorAttachment.clearValue = demo.clearColor;
+    }
+  }
 }
 
 export function disposeGridDemo() {
