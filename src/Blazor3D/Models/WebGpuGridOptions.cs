@@ -1,3 +1,5 @@
+using System.Drawing;
+
 namespace Blazor3D.Models;
 
 /// <summary>
@@ -21,9 +23,9 @@ public record WebGpuGridOptions
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
     public static readonly WebGpuGridOptions Default = new()
     {
-        ClearColor = new ColorRgba(0, 0, 0.5, 1),
-        LineColor = new ColorRgba(1, 1, 1, 1),
-        BaseColor = new ColorRgba(0.01, 0.1, 0.01, 0.1),
+        ClearColor = Color.FromArgb(100,100,100,255),
+        LineColor = Color.FromArgb(255,255,255),
+        BaseColor = Color.FromArgb(10,50,100,50),
         LineWidthX = 0.2,
         LineWidthY = 0.2,
         SampleCount = 4,
@@ -34,9 +36,9 @@ public record WebGpuGridOptions
         ZFar = 128
     };
 
-    public required ColorRgba ClearColor { get; init; }
-    public required ColorRgba LineColor { get; init; }
-    public required ColorRgba BaseColor { get; init; }
+    public required Color ClearColor { get; init; }
+    public required Color LineColor { get; init; }
+    public required Color BaseColor { get; init; }
 
     private double _lineWidthX;
     private double _lineWidthY;
@@ -76,8 +78,6 @@ public record WebGpuGridOptions
 /// <summary>
 /// RGBA color as 0.0-1.0 floats for WebGPU/JS interop.
 /// </summary>
-public record ColorRgba(double R, double G, double B, double A)
-{
-    public object FromSystemColor =>
-        new { r = (float)R, g = (float)G, b = (float)B, a = (float)A };
-}
+//public record Color(double R, double G, double B, double A)
+//{
+//}
