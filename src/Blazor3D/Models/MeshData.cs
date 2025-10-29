@@ -15,7 +15,7 @@ public record MeshData
     public required IEnumerable<Vector3> Vertices { get; init; }
 
     /// <summary>Triangle indices (3 indices per triangle).</summary>
-    public required IEnumerable<IEnumerable<int>> Indices { get; init; }
+    public required IEnumerable<(int a, int b, int c)> Indices { get; init; }
 
     /// <summary>
     /// Per-triangle colors (RGBA, 0-1 range).
@@ -46,25 +46,25 @@ public record MeshData
         };
 
         // 12 triangles (2 per face × 6 faces) = 36 indices
-        var indices = new int[][]
+        var indices = new (int a, int b, int c)[]
         {
             // Bottom faces (minz faces)
-           [ 0, 1, 3],  [0,3,2],
+           ( 0, 1, 3),  (0,3,2),
             
             // Top face (maxZ faces)
-            [4, 5, 6],  [6,5, 7],
+            (4, 5, 6),  (6,5, 7),
             
             // front faces (miny)
-            [0,1,4],  [4,1,5],
+            (0,1,4),  (4,1,5),
             
             // back faces (maxy)
-            [2,3,6],  [6,3,7],
+            (2,3,6),  (6,3,7),
             
             // Left face (minx)
-            [0,2,4],  [4,2,6],
+            (0,2,4),  (4,2,6),
             
             // Right face (maxx)
-            [1,3,5],  [5,3,7]
+            (1,3,5),  (5,3,7)
         };
 
         // 12 colors (one per triangle) - matches indices.Length / 3
@@ -105,19 +105,54 @@ public record MeshData
             ColorMode = MeshColoring.PerTriangle
         };
     }
+    private IEnumerable<int> TriangleIndices((int, int, int) faceIndices)
+    {
+        yield return faceIndices.Item1;
+        yield return faceIndices.Item2;
+        yield return faceIndices.Item3;
+    }
+
     private IEnumerable<float> Coordinates(Vector3 v)
     { yield return v.X; yield return v.Y; yield return v.Z; }
 
+    private IEnumerable<float> ColorParts(Color c)
+    {
+        yield return c.R / 255f;
+        yield return c.G / 255f;
+        yield return c.B / 255f;
+        yield return c.A / 255f;
+    }
+
     internal object CreateJavascriptData()
     {
-        return new
+        if (ColorMode == MeshColoring.PerTriangle)
         {
-            id = Id,
-            vertices = Vertices.SelectMany(v => Coordinates(v)).ToArray(),
-            indices = Indices.SelectMany(ind=>ind).ToArray(),
-            colors = Colors.Select(c=> new { r = (float)c.R, g = (float)c.G, b = (float)c.B, a = (float)c.A }).ToArray(),
-            solidTriangleColor = (int)ColorMode 
-        };
+            int expectedColors = Indices.Count();
+            if (Colors.Count() != expectedColors)
+            {
+                throw new InvalidOperationException($"Color count {Colors.Count()} does not match expected per-triangle color count {expectedColors}.");
+            }
+            var vertexList = Vertices as IList<Vector3> ?? Vertices.ToList();
+            return new
+            {
+                id = Id,
+                vertices = Indices.SelectMany(face => TriangleIndices(face)).SelectMany(ind => Coordinates(vertexList[ind])).ToArray(),
+                indices = Enumerable.Range(0, Indices.Count()).ToArray(),
+                colors = Colors.SelectMany(c => ColorParts(c)).ToArray(),
+                singleColor = ColorMode == MeshColoring.UniformColor
+            };
+        }
+        else
+        {
+            return new
+            {
+                id = Id,
+                vertices = Vertices.SelectMany(v => Coordinates(v)).ToArray(),
+                indices = Indices.SelectMany(face => TriangleIndices(face)).ToArray(),
+                colors = Colors.SelectMany(c => ColorParts(c)).ToArray(),
+                singleColor = ColorMode == MeshColoring.UniformColor
+            };
+        }
     }
     public enum MeshColoring
     {

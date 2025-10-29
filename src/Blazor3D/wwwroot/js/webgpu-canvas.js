@@ -269,14 +269,14 @@ export class WebGpu_Canvas {
                 pass.setBindGroup(0, this.frameBindGroup);
 
                 // Set bind group 1 only for uniform color mode
-                if (!mesh.hasVertexColors && mesh.bindGroup) {
+                if (mesh.singleColor && mesh.bindGroup) {
                     pass.setBindGroup(1, mesh.bindGroup);
                 }
 
                 pass.setVertexBuffer(0, mesh.vertexBuffer);
 
                 // Set color buffer if using any vertex colors (per-vertex or per-triangle)
-                if (mesh.hasVertexColors && mesh.colorBuffer) {
+                if (!mesh.singleColor && mesh.colorBuffer) {
                     pass.setVertexBuffer(1, mesh.colorBuffer);
                 }
 
@@ -296,7 +296,7 @@ export class WebGpu_Canvas {
             return;
         }
 
-        const { id, vertices, indices, colors, meshColoring } = meshData;
+        const { id, vertices, indices, colors, singleColor } = meshData;
 
         console.log(`[addMesh] Adding mesh "${id}":`);
         console.log(`  - Vertices: ${vertices.length / 3} (${vertices.length} floats)`);
@@ -330,82 +330,49 @@ export class WebGpu_Canvas {
         new Uint16Array(indexBuffer.getMappedRange()).set(indices);
         indexBuffer.unmap();
 
-        const shaderCode = MESH_SHADER_VERTEX_COLOR
-        if (meshColoring === 0) {
+        let shaderCode = null;
+        let bindGroup = null;
+        let colorBuffer = null;
+        if (singleColor) {
             // Uniform color throughout 
             console.log(`  - Color Mode is UNIFORM`);
-
-            const uniformArray = new ArrayBuffer(16 * Float32Array.BYTES_PER_ELEMENT);
-            const colorView = new Float32Array(uniformArray, 0, 4);
-            colorView.set([1.0, 0.0, 0.0, 1.0]); // Default red
-
-            uniformBuffer = this.device.createBuffer({
-                size: uniformArray.byteLength,
-                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+            shaderCode = MESH_SHADER;
+            
+            colorBuffer = this.device.createBuffer({
+                size: 4 * Float32Array.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                mappedAtCreation: true
             });
-            this.device.queue.writeBuffer(uniformBuffer, 0, uniformArray);
-
+            new Float32Array(colorBuffer.getMappedRange()).set([colors[0], colors[1], colors[2], colors[3]]);
+            colorBuffer.unmap();
+            
             const bindGroupLayout = this.device.createBindGroupLayout({
                 label: `Mesh ${id} BGL`,
                 entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }]
             });
-
             bindGroup = this.device.createBindGroup({
                 label: `Mesh ${id} BG`,
                 layout: bindGroupLayout,
-                entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+                entries: [{ binding: 0, resource: { buffer: colorBuffer } }]
             });
-        }
-        else if (meshColoring === 1) {
-            // colors are per vertex, so the face are gradients
-            // Convert ColorRgba objects to flat float array
+        } else {
+            // Colors are per-vertex, so faces are gradients
             console.log(`  - Color Mode is PER-VERTEX`);
-
-            const colorArray = new Float32Array(colors.length * 4);
-            for (let i = 0; i < colors.length; i++) {
-                colorArray[i * 4 + 0] = colors[i].r;
-                colorArray[i * 4 + 1] = colors[i].g;
-                colorArray[i * 4 + 2] = colors[i].b;
-                colorArray[i * 4 + 3] = colors[i].a;
-            }
-
-            // Per-vertex colors: use vertex buffer (legacy)
+            shaderCode = MESH_SHADER_VERTEX_COLOR;
+            
             colorBuffer = this.device.createBuffer({
-                size: colorArray.byteLength,
+                size: colors.length * Float32Array.BYTES_PER_ELEMENT,
                 usage: GPUBufferUsage.VERTEX,
                 mappedAtCreation: true
             });
-            new Float32Array(colorBuffer.getMappedRange()).set(colorArray);
-            colorBuffer.unmap();
-        }
-        else {
-            // colors are per triangle, so the faces are solid colors
-            // Per-triangle colors: expand to per-vertex by duplicating each triangle color 3 times
-            // Since colors.length = triangle count, and each triangle has 3 vertices
-            console.log(`  - Color Mode is PER-TRIANGLE`);
-            const perVertexColorArray = new Float32Array(indices.length * 4);
-            for (let i = 0; i < indices.length; i++) {
-                const triangleIndex = Math.floor(i / 3);
-                perVertexColorArray[i * 4 + 0] = colorArray[triangleIndex * 4 + 0];
-                perVertexColorArray[i * 4 + 1] = colorArray[triangleIndex * 4 + 1];
-                perVertexColorArray[i * 4 + 2] = colorArray[triangleIndex * 4 + 2];
-                perVertexColorArray[i * 4 + 3] = colorArray[triangleIndex * 4 + 3];
-            }
-
-            colorBuffer = this.device.createBuffer({
-                size: perVertexColorArray.byteLength,
-                usage: GPUBufferUsage.??,
-                mappedAtCreation: true
-            });
-            new Float32Array(colorBuffer.getMappedRange()).set(perVertexColorArray);
+            new Float32Array(colorBuffer.getMappedRange()).set(colors);
             colorBuffer.unmap();
         }
 
-
-        // Create appropriate shader based on color mode
+        // Create shader module (now for both modes)
         const shaderModule = this.device.createShaderModule({ code: shaderCode });
 
-        // Build vertex buffer layout
+        // Define vertex buffer layout (conditionally for both modes)
         const vertexBufferLayout = [
             {
                 arrayStride: 12, // 3 floats (x, y, z)
@@ -413,8 +380,7 @@ export class WebGpu_Canvas {
             }
         ];
 
-        // Add color buffer layout if using any vertex colors
-        if (hasVertexColors) {
+        if (!singleColor) {  // Add color attribute only for per-vertex mode
             vertexBufferLayout.push({
                 arrayStride: 16, // 4 floats (r, g, b, a)
                 attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x4' }]
@@ -422,17 +388,17 @@ export class WebGpu_Canvas {
         }
 
         // Create pipeline
-        const pipelineLayout = hasVertexColors
-            ? this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout] })
-            : this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout, bindGroup.layout] });
+        const pipelineLayout = singleColor
+            ? this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout, bindGroup.layout] })
+            : this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout] });
 
         this.device.createRenderPipelineAsync({
             label: `Mesh ${id} Pipeline`,
             layout: pipelineLayout,
             vertex: {
-                module: shaderModule,
+                module: shaderModule,  // Now always defined
                 entryPoint: 'vertexMain',
-                buffers: vertexBufferLayout
+                buffers: vertexBufferLayout  // Now always defined
             },
             fragment: {
                 module: shaderModule,
@@ -468,10 +434,8 @@ export class WebGpu_Canvas {
             vertexBuffer,
             colorBuffer,
             indexBuffer,
-            uniformBuffer,
             bindGroup,
-            hasVertexColors,
-            colorsAtVertices,
+            singleColor,
             indexCount: indices.length,
             pipeline: null
         });
@@ -484,7 +448,6 @@ export class WebGpu_Canvas {
             if (mesh.vertexBuffer) mesh.vertexBuffer.destroy();
             if (mesh.colorBuffer) mesh.colorBuffer.destroy();
             if (mesh.indexBuffer) mesh.indexBuffer.destroy();
-            if (mesh.uniformBuffer) mesh.uniformBuffer.destroy();
             this.meshes.splice(index, 1);
         }
     }
@@ -494,7 +457,6 @@ export class WebGpu_Canvas {
             if (mesh.vertexBuffer) mesh.vertexBuffer.destroy();
             if (mesh.colorBuffer) mesh.colorBuffer.destroy();
             if (mesh.indexBuffer) mesh.indexBuffer.destroy();
-            if (mesh.uniformBuffer) mesh.uniformBuffer.destroy();
         }
         this.meshes = [];
     }
