@@ -49,7 +49,7 @@ public record MeshData
         var indices = new (int a, int b, int c)[]
         {
             // Bottom faces (minz faces)
-           ( 0, 1, 3),  (0,3,2),
+           ( 0, 3,1),  (0,2,3),
             
             // Top face (maxZ faces)
             (4, 5, 6),  (6,5, 7),
@@ -58,10 +58,10 @@ public record MeshData
             (0,1,4),  (4,1,5),
             
             // back faces (maxy)
-            (2,3,6),  (6,3,7),
+            (2,6,3),  (3,6,7),
             
             // Left face (minx)
-            (0,2,4),  (4,2,6),
+            (0,4,2),  (2,4,6),
             
             // Right face (maxx)
             (1,3,5),  (5,3,7)
@@ -102,7 +102,7 @@ public record MeshData
             Vertices = vertices,
             Indices = indices,
             Colors = colors,
-            ColorMode = MeshColoring.PerTriangle
+            ColorMode = MeshColoring.PerVertex
         };
     }
     private IEnumerable<int> TriangleIndices((int, int, int) faceIndices)
@@ -139,7 +139,7 @@ public record MeshData
                 vertices = Indices.SelectMany(face => TriangleIndices(face)).SelectMany(ind => Coordinates(vertexList[ind])).ToArray(),
                 indices = Enumerable.Range(0, Indices.Count()).ToArray(),
                 colors = Colors.SelectMany(c => ColorParts(c)).ToArray(),
-                singleColor = ColorMode == MeshColoring.UniformColor
+                singleColor = false
             };
         }
         else
@@ -149,6 +149,7 @@ public record MeshData
                 id = Id,
                 vertices = Vertices.SelectMany(v => Coordinates(v)).ToArray(),
                 indices = Indices.SelectMany(face => TriangleIndices(face)).ToArray(),
+                //colors = new float[] { 1f, 0f, 0f, 1f },
                 colors = Colors.SelectMany(c => ColorParts(c)).ToArray(),
                 singleColor = ColorMode == MeshColoring.UniformColor
             };
