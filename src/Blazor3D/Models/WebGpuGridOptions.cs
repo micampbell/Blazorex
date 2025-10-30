@@ -73,6 +73,24 @@ public record WebGpuGridOptions
 
     /// <summary>Far clipping plane distance.</summary>
     public required double ZFar { get; init; }
+
+    /// <summary>
+    /// Converts this options object to a JS-friendly format with colors normalized to 0-1 floats.
+    /// </summary>
+    public object ToJavascriptOptions() => new
+    {
+        clearColor = new { r = ClearColor.R / 255.0, g = ClearColor.G / 255.0, b = ClearColor.B / 255.0, a = ClearColor.A / 255.0 },
+        lineColor = new { r = LineColor.R / 255.0, g = LineColor.G / 255.0, b = LineColor.B / 255.0, a = LineColor.A / 255.0 },
+        baseColor = new { r = BaseColor.R / 255.0, g = BaseColor.G / 255.0, b = BaseColor.B / 255.0, a = BaseColor.A / 255.0 },
+        lineWidthX = LineWidthX,
+        lineWidthY = LineWidthY,
+        sampleCount = SampleCount,
+        projectionType = (int)ProjectionType,
+        fov = Fov,
+        orthoSize = OrthoSize,
+        zNear = ZNear,
+            zFar = ZFar
+        };
 }
 
 /// <summary>

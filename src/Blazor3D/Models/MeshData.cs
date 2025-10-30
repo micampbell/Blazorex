@@ -102,7 +102,7 @@ public record MeshData
             Vertices = vertices,
             Indices = indices,
             Colors = colors,
-            ColorMode = MeshColoring.PerVertex
+            ColorMode = MeshColoring.PerTriangle
         };
     }
     private IEnumerable<int> TriangleIndices((int, int, int) faceIndices)

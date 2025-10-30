@@ -159,7 +159,7 @@
 		}
 		else
 		{
-			await _module.InvokeVoidAsync("updateGridOptions", Options);
+			await _module.InvokeVoidAsync("updateGridOptions", Options.ToJavascriptOptions());
 		}
 	}
 

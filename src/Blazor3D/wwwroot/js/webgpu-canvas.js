@@ -82,13 +82,8 @@ export class WebGpu_Canvas {
     lineWidth = new Float32Array(this.uniformArray, 32, 2);
 
     // Configurable grid options
-    gridOptions = {
-        clearColor: { r: 0, g: 0, b: 0.2, a: 1 },
-        lineColor: { r: 1, g: 1, b: 1, a: 1 },
-        baseColor: { r: 0, g: 0, b: 0, a: 1 },
-        lineWidthX: 0.05,
-        lineWidthY: 0.05
-    };
+    // Removed hardcoded defaults; rely on WebGpuGridOptions.Default passed from C#
+    gridOptions = {};
 
     // Dynamic meshes array (cubes, etc.)
     meshes = [];
