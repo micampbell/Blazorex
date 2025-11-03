@@ -290,6 +290,27 @@ export class WebGpu_Canvas {
         device.queue.submit([encoder.finish()]);
     }
 
+    addLines(lineData) {
+        if (!this.device) {
+            console.error('WebGPU device not initialized');
+            return;
+        }
+
+        const { id, vertices, thickness, colors } = lineData;
+
+        console.log(`[addLines] Adding lines "${id}":`);
+        console.log(`  - Vertices: ${vertices.length / 3} (${vertices.length} floats)`);
+        console.log(`  - Line segments: ${vertices.length / 3 - 1}`);
+        console.log(`  - Thickness values: ${thickness.length}`);
+        console.log(`  - Colors: ${colors ? colors.length : 0}`);
+
+        const numVertices = vertices.length / 3;
+        const numSegments = numVertices - 1;
+
+        // to-be-completed
+    }
+
+
     // Add a mesh to the scene
     addMesh(meshData) {
         if (!this.device) {

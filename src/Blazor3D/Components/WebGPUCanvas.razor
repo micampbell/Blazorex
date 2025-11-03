@@ -61,6 +61,18 @@
 	}
 
 	/// <summary>
+	/// Adds a mesh to the WebGPU scene for rendering.
+	/// </summary>
+	public async Task AddLinesAsync(LineData mesh)
+	{
+		if (_module is null || !_ready)
+		{
+			throw new InvalidOperationException("WebGPU is not ready. Wait for initialization.");
+		}
+		await _module.InvokeVoidAsync("addLines", mesh.CreateJavascriptData());
+	}
+
+	/// <summary>
 	/// Removes a mesh from the scene by its ID.
 	/// </summary>
 	public async Task RemoveMeshAsync(string meshId)

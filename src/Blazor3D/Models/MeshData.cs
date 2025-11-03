@@ -6,10 +6,8 @@ namespace Blazor3D.Models;
 /// <summary>
 /// Represents a 3D mesh with vertices and indices for WebGPU rendering.
 /// </summary>
-public record MeshData
+public record MeshData : CStoWebGPUDataObject
 {
-    /// <summary>Unique identifier for this mesh instance.</summary>
-    public required string Id { get; init; }
 
     /// <summary>Vertex positions (x, y, z triplets).</summary>
     public required IEnumerable<Vector3> Vertices { get; init; }
@@ -17,12 +15,7 @@ public record MeshData
     /// <summary>Triangle indices (3 indices per triangle).</summary>
     public required IEnumerable<(int a, int b, int c)> Indices { get; init; }
 
-    /// <summary>
-    /// Per-triangle colors (RGBA, 0-1 range).
-    /// Array length should equal Indices.Length / 3 (one color per triangle).
-    /// </summary>
-    public IEnumerable<Color> Colors { get; init; }
-    public MeshColoring ColorMode { get; init; }
+    public required MeshColoring ColorMode { get; init; }
     /// <summary>
     /// Creates a cube mesh with solid colors per triangle (engineering/CAD style).
     /// Each of the 12 triangles gets its own unique color for maximum visualization control.
@@ -105,25 +98,8 @@ public record MeshData
             ColorMode = MeshColoring.PerTriangle
         };
     }
-    private IEnumerable<int> TriangleIndices((int, int, int) faceIndices)
-    {
-        yield return faceIndices.Item1;
-        yield return faceIndices.Item2;
-        yield return faceIndices.Item3;
-    }
-
-    private IEnumerable<float> Coordinates(Vector3 v)
-    { yield return v.X; yield return v.Y; yield return v.Z; }
-
-    private IEnumerable<float> ColorParts(Color c)
-    {
-        yield return c.R / 255f;
-        yield return c.G / 255f;
-        yield return c.B / 255f;
-        yield return c.A / 255f;
-    }
-
-    internal object CreateJavascriptData()
+    
+    internal override object CreateJavascriptData()
     {
         if (ColorMode == MeshColoring.PerTriangle)
         {
@@ -155,10 +131,12 @@ public record MeshData
             };
         }
     }
-    public enum MeshColoring
-    {
-        UniformColor,
-        PerVertex,
-        PerTriangle
-    }
 }
+
+public enum MeshColoring
+{
+    UniformColor,
+    PerVertex,
+    PerTriangle
+}
+
