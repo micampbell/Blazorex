@@ -98,7 +98,7 @@ public record MeshData : CStoWebGPUDataObject
             ColorMode = MeshColoring.PerTriangle
         };
     }
-    
+
     internal override object CreateJavascriptData()
     {
         if (ColorMode == MeshColoring.PerTriangle)
@@ -109,12 +109,14 @@ public record MeshData : CStoWebGPUDataObject
                 throw new InvalidOperationException($"Color count {Colors.Count()} does not match expected per-triangle color count {expectedColors}.");
             }
             var vertexList = Vertices as IList<Vector3> ?? Vertices.ToList();
+
             return new
             {
                 id = Id,
                 vertices = Indices.SelectMany(face => TriangleIndices(face)).SelectMany(ind => Coordinates(vertexList[ind])).ToArray(),
-                indices = Enumerable.Range(0, Indices.Count()).ToArray(),
-                colors = Colors.SelectMany(c => ColorParts(c)).ToArray(),
+                indices = Enumerable.Range(0, 3 * Indices.Count()).ToArray(),
+                colors = Colors.SelectMany(c =>
+                      ColorParts(c).Concat(ColorParts(c)).Concat(ColorParts(c))).ToArray(),
                 singleColor = false
             };
         }
