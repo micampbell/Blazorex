@@ -44,6 +44,13 @@
 	private HashSet<string> _pressedKeys = new();
 	private System.Threading.Timer? _keyboardMoveTimer;
 
+	// Double-click detection
+	private DateTime _lastClickTime = DateTime.MinValue;
+	private double _lastClickX;
+	private double _lastClickY;
+	private const double DoubleClickTimeMs = 300; // Standard double-click time window
+	private const double DoubleClickDistancePx = 5; // Maximum distance for double-click
+
 	public double LatestFrameMs { get; private set; }
 
 	protected override void OnParametersSet()
@@ -123,6 +130,30 @@
 
 	private void OnPointerDown(PointerEventArgs e)
 	{
+		var currentTime = DateTime.Now;
+		var timeSinceLastClick = (currentTime - _lastClickTime).TotalMilliseconds;
+		var distanceFromLastClick = Math.Sqrt(
+			Math.Pow(e.ClientX - _lastClickX, 2) + 
+			Math.Pow(e.ClientY - _lastClickY, 2));
+
+		// Check for double-click (left mouse button only)
+		if (e.Button == 0 && 
+		    timeSinceLastClick <= DoubleClickTimeMs && 
+		    distanceFromLastClick <= DoubleClickDistancePx)
+		{
+			// Double-click detected - handle it here
+			OnDoubleClick(e);
+			return; // Don't process as single click
+		}
+
+		// Update last click info for next potential double-click
+		if (e.Button == 0)
+		{
+			_lastClickTime = currentTime;
+			_lastClickX = e.ClientX;
+			_lastClickY = e.ClientY;
+		}
+
 		if (e.Button == 0) // Left mouse button - rotate
 		{
 			_isDragging = true;
@@ -136,6 +167,18 @@
 			_isDragging = false;
 			_lastPointerX = e.ClientX;
 			_lastPointerY = e.ClientY;
+		}
+	}
+
+	private async Task OnDoubleClick(PointerEventArgs e)
+	{
+		// Reset camera to default position on double-click
+		_camera.Reset();
+		
+		// Send updated view matrix to JavaScript
+		if (_module != null && _ready)
+		{
+			await _module.InvokeVoidAsync("updateViewMatrix", _camera.GetViewMatrixArray());
 		}
 	}
 
@@ -320,5 +363,20 @@
 		}
 
 		_dotNetRef?.Dispose();
+	}
+
+	private void OnCanvasDoubleClick()
+	{
+		// Handle double-clicks (e.g., reset camera or toggle full screen)
+		ResetCamera();
+	}
+
+	private void ResetCamera()
+	{
+		// Reset camera to default position and orientation
+		_camera.Reset();
+
+		// Send updated view matrix to JavaScript
+		_module?.InvokeVoidAsync("updateViewMatrix", _camera.GetViewMatrixArray());
 	}
 }
