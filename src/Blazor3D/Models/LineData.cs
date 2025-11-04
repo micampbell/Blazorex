@@ -21,8 +21,6 @@ public record LineData : CStoWebGPUDataObject
     /// </summary>
     public static LineData CreateWireTet(string id, float minX, float minY, float minZ, float maxX, float maxY, float maxZ)
     {
-        minZ += 5;
-        maxZ += 5;
         var vertices = new Vector3[]
         {
             // Bottom faces (4 vertices)
@@ -39,7 +37,7 @@ public record LineData : CStoWebGPUDataObject
         };
         var thicks = new double[]
         {
-            0.05, 0.1, 0.5, 1,2
+            0.05, 0.1, 0.5, 0.1,0.5
         };
 
         // 12 colors (one per triangle) - matches indices.Length / 3
