@@ -61,15 +61,15 @@
 	}
 
 	/// <summary>
-	/// Adds a mesh to the WebGPU scene for rendering.
+	/// Adds lines to the WebGPU scene for rendering.
 	/// </summary>
-	public async Task AddLinesAsync(LineData mesh)
+	public async Task AddLinesAsync(LineData lines)
 	{
 		if (_module is null || !_ready)
 		{
 			throw new InvalidOperationException("WebGPU is not ready. Wait for initialization.");
 		}
-		await _module.InvokeVoidAsync("addLines", mesh.CreateJavascriptData());
+		await _module.InvokeVoidAsync("addLines", lines.CreateJavascriptData());
 	}
 
 	/// <summary>
@@ -82,12 +82,30 @@
 	}
 
 	/// <summary>
+	/// Removes lines from the scene by their ID.
+	/// </summary>
+	public async Task RemoveLinesAsync(string lineId)
+	{
+		if (_module is null) return;
+		await _module.InvokeVoidAsync("removeLines", lineId);
+	}
+
+	/// <summary>
 	/// Clears all dynamically added meshes from the scene.
 	/// </summary>
 	public async Task ClearAllMeshesAsync()
 	{
 		if (_module is null) return;
 		await _module.InvokeVoidAsync("clearAllMeshes");
+	}
+
+	/// <summary>
+	/// Clears all dynamically added lines from the scene.
+	/// </summary>
+	public async Task ClearAllLinesAsync()
+	{
+		if (_module is null) return;
+		await _module.InvokeVoidAsync("clearAllLines");
 	}
 
 	private void OnPointerDown(PointerEventArgs e)
