@@ -13,10 +13,32 @@
         Options="_currentOptions" 
         OptionsChanged="OnOptionsChanged" IsExpanded="true" />
     
+    @* Control instructions panel *@
+    <div class="controls-panel">
+        <h4>🎮 Camera Controls</h4>
+        <div class="control-group">
+       <strong>🖱️ Mouse:</strong>
+   <ul>
+ <li><strong>Left Drag:</strong> Rotate camera</li>
+              <li><strong>Middle Drag:</strong> Pan view</li>
+           <li><strong>Scroll Wheel:</strong> Zoom in/out</li>
+          </ul>
+</div>
+        <div class="control-group">
+            <strong>⌨️ Keyboard:</strong>
+     <ul>
+    <li><strong>W/S:</strong> Move forward/backward</li>
+            <li><strong>A/D:</strong> Move left/right</li>
+       <li><strong>Q/E:</strong> Move down/up</li>
+     <li><strong>Shift:</strong> Hold for faster movement</li>
+     </ul>
+        </div>
+    </div>
+    
     <button class="add-cube-button" @onclick="AddCube">
         ➕ Add Cube
     </button>
-    <button class="add-wire-button" @onclick="AddWire">
+ <button class="add-wire-button" @onclick="AddWire">
         ➕ Add Wire
     </button>
 </div>
@@ -35,10 +57,10 @@
     }
 
     .add-cube-button, .add-wire-button {
-        position: fixed;
+     position: fixed;
         bottom: 20px;
-        padding: 12px 24px;
-        background: #28a745;
+    padding: 12px 24px;
+     background: #28a745;
         border: none;
         border-radius: 8px;
         color: white;
@@ -55,22 +77,81 @@
     }
 
     .add-wire-button {
-        left: 140px; /* Position to the right of the Add Cube button (adjust based on button width) */
+        left: 160px;
     }
 
     .add-cube-button:hover, .add-wire-button:hover {
-        background: #218838;
+background: #218838;
     }
 
-    .add-cube-button:active, .add-wire-button:active {
+.add-cube-button:active, .add-wire-button:active {
         transform: scale(0.98);
+    }
+
+    .controls-panel {
+     position: fixed;
+        bottom: 20px;
+        right: 20px;
+     background: rgba(30, 30, 30, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+   border-radius: 12px;
+      padding: 16px 20px;
+      color: white;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-size: 13px;
+        z-index: 1000;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        max-width: 280px;
+  backdrop-filter: blur(10px);
+    }
+
+    .controls-panel h4 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #4fc3f7;
+    }
+
+    .control-group {
+    margin-bottom: 12px;
+    }
+
+    .control-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .control-group strong {
+        color: #ffa726;
+        font-size: 14px;
+  }
+
+    .controls-panel ul {
+        margin: 6px 0 0 0;
+        padding-left: 20px;
+        list-style: none;
+    }
+
+    .controls-panel li {
+   margin: 4px 0;
+        line-height: 1.4;
+    }
+
+    .controls-panel li strong {
+        color: #81c784;
+        font-weight: 600;
+    }
+
+    .controls-panel li::before {
+      content: '▸';
+   color: #4fc3f7;
+        margin-right: 6px;
     }
 </style>
 
 @code {
-    private WebGpuGridOptions _currentOptions = WebGpuGridOptions.Default;
+ private WebGpuGridOptions _currentOptions = WebGpuGridOptions.Default;
     private WebGPUCanvas? _canvasRef;
-    private int _cubeCounter = 0;
+ private int _cubeCounter = 0;
 
     private void OnOptionsChanged(WebGpuGridOptions newOptions)
     {
@@ -85,48 +166,48 @@
         // Generate unique ID for this cube
         var cubeId = $"cube-{_cubeCounter++}";
 
-        // Random position and size for variety
+     // Random position and size for variety
         var random = Random.Shared;
-        var size = (float)(random.NextDouble() * 2 + 1); // 1-3 units
+  var size = (float)(random.NextDouble() * 2 + 1); // 1-3 units
         var x = (float)(random.NextDouble() * 10 - 5); // -5 to +5
-        var z = (float)(random.NextDouble() * 10 - 5); // -5 to +5
+var z = (float)(random.NextDouble() * 10 - 5); // -5 to +5
         var y = size / 2; // Sit on the grid
 
         // Create cube mesh data with per-vertex colors
         // The CreateCube method now includes a rainbow color array
         var cube = MeshData.CreateCube(
-            cubeId,
-            x - size / 2, y - size / 2, z - size / 2, // min
-            x + size / 2, y + size / 2, z + size / 2  // max
-        );
+ cubeId,
+      x - size / 2, y - size / 2, z - size / 2, // min
+ x + size / 2, y + size / 2, z + size / 2  // max
+      );
 
         // Add to WebGPU scene
         await _canvasRef.AddMeshAsync(cube);
     }
+    
     private async Task AddWire(MouseEventArgs args)
     {
         if (_canvasRef is null) return;
 
-        // Generate unique ID for this cube
-        var cubeId = $"wire-{_cubeCounter++}";
+        // Generate unique ID for this wire
+    var wireId = $"wire-{_cubeCounter++}";
 
-        // Random position and size for variety
+   // Random position and size for variety
         var random = Random.Shared;
-        var size = (float)(random.NextDouble() * 2 + 1); // 1-3 units
-        var x = (float)(random.NextDouble() * 10 - 5); // -5 to +5
-        var z = (float)(random.NextDouble() * 10 - 5); // -5 to +5
-        var y = size / 2; // Sit on the grid
+     var size = (float)(random.NextDouble() * 2 + 1); // 1-3 units
+     var x = (float)(random.NextDouble() * 10 - 5); // -5 to +5
+    var z = (float)(random.NextDouble() * 10 - 5); // -5 to +5
+    var y = size / 2; // Sit on the grid
 
-        // Create cube mesh data with per-vertex colors
-        // The CreateCube method now includes a rainbow color array
-        var cube = LineData.CreateWireTet(
-            cubeId,
-            x - size / 2, y - size / 2, z - size / 2, // min
-            x + size / 2, y + size / 2, z + size / 2  // max
-        );
+        // Create wire/line data
+        var wire = LineData.CreateWireTet(
+            wireId,
+     x - size / 2, y - size / 2, z - size / 2, // min
+      x + size / 2, y + size / 2, z + size / 2  // max
+    );
 
-        // Add to WebGPU scene
-        await _canvasRef.AddLinesAsync(cube);
+      // Add to WebGPU scene
+        await _canvasRef.AddLinesAsync(wire);
     }
 }
 

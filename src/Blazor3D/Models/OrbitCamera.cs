@@ -4,7 +4,7 @@ namespace Blazor3D.Models;
 
 /// <summary>
 /// Orbit camera for 3D scene navigation with mouse/touch controls.
-/// Handles rotation (orbit) and zoom (distance) interactions.
+/// Handles rotation (orbit), zoom (distance), and pan (target movement).
 /// </summary>
 public class OrbitCamera
 {
@@ -13,7 +13,7 @@ public class OrbitCamera
     private double _orbitY;
 
     // Camera distance from target
-    private double _distance = 3.0;
+    private double _distance = 10.0;
 
     // Camera target position
     private Vector3 _target = Vector3.Zero;
@@ -87,21 +87,23 @@ public class OrbitCamera
     }
 
     // Orbit constraints
-    public double MaxOrbitX { get; set; } = Math.PI * 0.5;
-    public double MinOrbitX { get; set; } = -Math.PI * 0.5;
+    public double MaxOrbitX { get; set; } = Math.PI * 0.49; // Slightly less than 90° to avoid gimbal lock
+    public double MinOrbitX { get; set; } = -Math.PI * 0.49;
     public double MaxOrbitY { get; set; } = Math.PI;
     public double MinOrbitY { get; set; } = -Math.PI;
     public bool ConstrainXOrbit { get; set; } = true;
     public bool ConstrainYOrbit { get; set; } = false;
 
     // Distance constraints
-    public double MaxDistance { get; set; } = 10.0;
-    public double MinDistance { get; set; } = 1.0;
+    public double MaxDistance { get; set; } = 50.0;
+    public double MinDistance { get; set; } = 0.5;
     public bool ConstrainDistance { get; set; } = true;
 
     // Sensitivity settings
     public double OrbitSensitivity { get; set; } = 0.005;
-    public double ZoomSensitivity { get; set; } = 0.001;
+    public double ZoomSensitivity { get; set; } = 0.01; // Increased for better zoom response
+    public double PanSensitivity { get; set; } = 0.01;
+    public double PanSpeedMultiplier { get; set; } = 2.0; // Multiplier when Shift is held
 
     /// <summary>
     /// Updates orbit angles based on pointer/mouse delta.
@@ -120,18 +122,70 @@ public class OrbitCamera
     /// <param name="wheelDelta">Mouse wheel delta (typically in 100s)</param>
     public void Zoom(double wheelDelta)
     {
-        Distance += -wheelDelta * ZoomSensitivity;
+        // Use exponential zoom for more natural feel
+        var zoomFactor = 1.0 + (wheelDelta * ZoomSensitivity);
+        Distance *= zoomFactor;
+    }
+
+    /// <summary>
+    /// Pans the camera target in screen space.
+    /// </summary>
+    /// <param name="deltaX">Horizontal movement in pixels</param>
+    /// <param name="deltaY">Vertical movement in pixels</param>
+    /// <param name="shiftPressed">Whether Shift key is pressed for faster movement</param>
+    public void Pan(double deltaX, double deltaY, bool shiftPressed = false)
+    {
+   // Calculate pan speed based on distance (closer = slower pan)
+   var panSpeed = PanSensitivity * Distance * (shiftPressed ? PanSpeedMultiplier : 1.0);
+
+        // Get camera's right and up vectors
+        UpdateMatrices();
+    Matrix4x4.Invert(_viewMatrix, out var cameraMatrix);
+        
+        var right = new Vector3(cameraMatrix.M11, cameraMatrix.M12, cameraMatrix.M13);
+        var up = new Vector3(cameraMatrix.M21, cameraMatrix.M22, cameraMatrix.M23);
+
+    // Pan in camera space
+        _target += right * (float)(-deltaX * panSpeed);
+        _target += up * (float)(deltaY * panSpeed);
+        _dirty = true;
+    }
+
+  /// <summary>
+    /// Pans the camera using WASD-style directional input.
+    /// </summary>
+    /// <param name="forward">Forward/backward movement (-1 to 1, S/W keys)</param>
+    /// <param name="right">Right/left movement (-1 to 1, A/D keys)</param>
+    /// <param name="up">Up/down movement (-1 to 1, typically Q/E keys)</param>
+    /// <param name="shiftPressed">Whether Shift key is pressed for faster movement</param>
+    public void PanDirectional(double forward, double right, double up, bool shiftPressed = false)
+    {
+        var panSpeed = PanSensitivity * Distance * (shiftPressed ? PanSpeedMultiplier : 1.0);
+
+        // Get camera's directional vectors
+        UpdateMatrices();
+        Matrix4x4.Invert(_viewMatrix, out var cameraMatrix);
+        
+        var rightVec = new Vector3(cameraMatrix.M11, cameraMatrix.M12, cameraMatrix.M13);
+   var upVec = new Vector3(cameraMatrix.M21, cameraMatrix.M22, cameraMatrix.M23);
+   var forwardVec = new Vector3(cameraMatrix.M31, cameraMatrix.M32, cameraMatrix.M33);
+
+    // Move target in camera space
+        _target += rightVec * (float)(right * panSpeed * 5.0); // Scale up for keyboard input
+    _target += upVec * (float)(up * panSpeed * 5.0);
+        _target += forwardVec * (float)(-forward * panSpeed * 5.0); // Negative for intuitive forward direction
+        _dirty = true;
     }
 
     /// <summary>
     /// Gets the view matrix for rendering.
     /// </summary>
-    public Matrix4x4 ViewMatrix
+public Matrix4x4 ViewMatrix
     {
         get
         {
             UpdateMatrices();
-            return _viewMatrix;
+     return _viewMatrix;
         }
     }
 
@@ -141,12 +195,12 @@ public class OrbitCamera
     public Vector3 Position
     {
         get
-        {
+   {
             UpdateMatrices();
-            Matrix4x4.Invert(_viewMatrix, out var cameraMatrix);
-            return Vector3.Transform(Vector3.Zero, cameraMatrix);
-        }
+     Matrix4x4.Invert(_viewMatrix, out var cameraMatrix);
+        return new Vector3(cameraMatrix.M41, cameraMatrix.M42, cameraMatrix.M43);
     }
+  }
 
     /// <summary>
     /// Returns the view matrix as a float array for JavaScript interop.
@@ -155,12 +209,12 @@ public class OrbitCamera
     {
         var m = ViewMatrix;
         return new float[]
-                {
-        m.M11, m.M12, m.M13, m.M14,
-   m.M21, m.M22, m.M23, m.M24,
-    m.M31, m.M32, m.M33, m.M34,
-     m.M41, m.M42, m.M43, m.M44
-                };
+        {
+         m.M11, m.M12, m.M13, m.M14,
+       m.M21, m.M22, m.M23, m.M24,
+        m.M31, m.M32, m.M33, m.M34,
+            m.M41, m.M42, m.M43, m.M44
+        };
     }
 
     private void UpdateMatrices()
@@ -168,26 +222,26 @@ public class OrbitCamera
         if (!_dirty) return;
 
         // Build camera matrix: translate to target, rotate, then move back by distance
-        _cameraMatrix = Matrix4x4.Identity;
+   _cameraMatrix = Matrix4x4.Identity;
         _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateTranslation(_target));
-        _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateRotationY(-(float)_orbitY));
+_cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateRotationY(-(float)_orbitY));
         _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateRotationX(-(float)_orbitX));
         _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateTranslation(0, 0, (float)_distance));
 
         // View matrix is inverse of camera matrix
         Matrix4x4.Invert(_cameraMatrix, out _viewMatrix);
-        _dirty = false;
+   _dirty = false;
     }
 
     /// <summary>
     /// Resets the camera to default position.
     /// </summary>
-    public void Reset()
+  public void Reset()
     {
         _orbitX = 0;
-        _orbitY = 0;
-        _distance = 3.0;
+     _orbitY = 0;
+        _distance = 10.0;
         _target = Vector3.Zero;
-        _dirty = true;
+   _dirty = true;
     }
 }
