@@ -178,8 +178,13 @@
 
 	private async Task OnDoubleClick(PointerEventArgs e)
 	{
+		if (_module is null || !_ready)
+		{
+			return; // WebGPU not ready
+		}
+
 		// Get canvas dimensions using JavaScript interop
-		var canvasRect = await JS.InvokeAsync<BoundingClientRect>("getBoundingClientRect", _canvasRef);
+		var canvasRect = await _module.InvokeAsync<BoundingClientRect>("getBoundingClientRect", _canvasRef);
 		var canvasWidth = canvasRect.Width;
 		var canvasHeight = canvasRect.Height;
 
