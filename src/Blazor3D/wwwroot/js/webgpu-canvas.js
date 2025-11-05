@@ -356,28 +356,32 @@ export class WebGpu_Canvas {
 
             if (len < 0.0001) continue; // Skip degenerate segments
 
+            // Compute perpendicular vector (assume lines in XY plane for simplicity)
+            const perpX = -dy / len;
+            const perpY = dx / len;
+            const perpZ = 0;
+            const halfThickness = t / 2;
+
             // Create 4 vertices for this segment's quad
-            // We'll store: position (xyz), direction (xyz), thickness (1 float)
-            // The vertex shader will expand these into screen-space quads
             const baseIdx = quadVertices.length / 3;
 
             // Vertex 0: start, left
-            quadVertices.push(v0[0], v0[1], v0[2]);
+            quadVertices.push(v0[0] + perpX * halfThickness, v0[1] + perpY * halfThickness, v0[2] + perpZ * halfThickness);
             quadColors.push(...color);
             quadThickness.push(t);
 
             // Vertex 1: start, right
-            quadVertices.push(v0[0], v0[1], v0[2]);
+            quadVertices.push(v0[0] - perpX * halfThickness, v0[1] - perpY * halfThickness, v0[2] - perpZ * halfThickness);
             quadColors.push(...color);
             quadThickness.push(t);
 
             // Vertex 2: end, left
-            quadVertices.push(v1[0], v1[1], v1[2]);
+            quadVertices.push(v1[0] + perpX * halfThickness, v1[1] + perpY * halfThickness, v1[2] + perpZ * halfThickness);
             quadColors.push(...color);
             quadThickness.push(t);
 
             // Vertex 3: end, right
-            quadVertices.push(v1[0], v1[1], v1[2]);
+            quadVertices.push(v1[0] - perpX * halfThickness, v1[1] - perpY * halfThickness, v1[2] - perpZ * halfThickness);
             quadColors.push(...color);
             quadThickness.push(t);
 
