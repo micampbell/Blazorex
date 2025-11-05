@@ -31,6 +31,12 @@
 	[Parameter]
 	public OrbitCamera? Camera { get; set; }
 
+	/// <summary>
+	/// Event raised when a picking ray is created (e.g., on double-click).
+	/// Subscribers can use this ray to perform triangle/primitive intersection tests.
+	/// </summary>
+	public event Action<Ray>? OnPickingRayCreated;
+
 	private ElementReference _canvasRef;
 	private IJSObjectReference? _module;
 	private DotNetObjectReference<WebGPUCanvas>? _dotNetRef;
@@ -172,14 +178,29 @@
 
 	private async Task OnDoubleClick(PointerEventArgs e)
 	{
-		// Reset camera to default position on double-click
-		_camera.Reset();
-		
-		// Send updated view matrix to JavaScript
-		if (_module != null && _ready)
-		{
-			await _module.InvokeVoidAsync("updateViewMatrix", _camera.GetViewMatrixArray());
-		}
+		// Get canvas dimensions using JavaScript interop
+		var canvasRect = await JS.InvokeAsync<BoundingClientRect>("getBoundingClientRect", _canvasRef);
+		var canvasWidth = canvasRect.Width;
+		var canvasHeight = canvasRect.Height;
+
+		// Convert mouse position relative to canvas
+		var relativeX = e.ClientX - canvasRect.Left;
+		var relativeY = e.ClientY - canvasRect.Top;
+
+		// Create picking ray from camera through mouse position
+		var pickingRay = _camera.CreateRayFromScreenPoint(relativeX, relativeY, canvasWidth, canvasHeight);
+
+		// Raise event for subscribers to handle picking
+		OnPickingRayCreated?.Invoke(pickingRay);
+	}
+
+	// Helper class for bounding client rect
+	private class BoundingClientRect
+	{
+		public double Left { get; set; }
+		public double Top { get; set; }
+		public double Width { get; set; }
+		public double Height { get; set; }
 	}
 
 	private async Task OnPointerMove(PointerEventArgs e)

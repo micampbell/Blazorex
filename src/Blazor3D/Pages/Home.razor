@@ -24,7 +24,7 @@
                     <li><strong>Left Drag:</strong> Rotate camera</li>
                     <li><strong>Middle Drag:</strong> Pan view</li>
                     <li><strong>Scroll Wheel:</strong> Zoom in/out</li>
-                    <li><strong>Double-Click:</strong> Reset camera</li>
+                    <li><strong>Double-Click:</strong> Pick/select objects</li>
                 </ul>
             </div>
             <div class="control-group">
@@ -302,6 +302,27 @@
 
         // Add to WebGPU scene
         await _canvasRef.AddLinesAsync(wire);
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && _canvasRef != null)
+        {
+            // Subscribe to picking events
+            _canvasRef.OnPickingRayCreated += OnPickingRayCreated;
+        }
+    }
+
+    private void OnPickingRayCreated(Ray pickingRay)
+    {
+        // Example: Log the ray information
+        Console.WriteLine($"Picking ray created:");
+        Console.WriteLine($"  Origin: ({pickingRay.Origin.X:F3}, {pickingRay.Origin.Y:F3}, {pickingRay.Origin.Z:F3})");
+        Console.WriteLine($"  Direction: ({pickingRay.Direction.X:F3}, {pickingRay.Direction.Y:F3}, {pickingRay.Direction.Z:F3})");
+
+        // TODO: Implement triangle intersection testing here
+        // You can iterate through your meshes and test ray-triangle intersections
+        // using algorithms like Möller-Trumbore or similar
     }
 }
 

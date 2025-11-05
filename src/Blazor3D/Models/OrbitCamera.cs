@@ -3,6 +3,21 @@
 namespace Blazor3D.Models;
 
 /// <summary>
+/// Simple ray structure for picking/selection operations.
+/// </summary>
+public struct Ray
+{
+    public Vector3 Origin;
+    public Vector3 Direction;
+
+    public Ray(Vector3 origin, Vector3 direction)
+    {
+        Origin = origin;
+        Direction = direction;
+    }
+}
+
+/// <summary>
 /// Orbit camera for 3D scene navigation with mouse/touch controls.
 /// Handles rotation (orbit), zoom (distance), and pan (target movement).
 /// </summary>
@@ -101,9 +116,34 @@ public class OrbitCamera
 
     // Sensitivity settings
     public double OrbitSensitivity { get; set; } = 0.005;
-    public double ZoomSensitivity { get; set; } = 0.001; // Increased for better zoom response
+    public double ZoomSensitivity { get; set; } = 0.01; // Increased for better zoom response
     public double PanSensitivity { get; set; } = 0.01;
     public double PanSpeedMultiplier { get; set; } = 2.0; // Multiplier when Shift is held
+
+    /// <summary>
+    /// Camera projection type (Perspective or Orthographic).
+    /// </summary>
+    public ProjectionType ProjectionType { get; set; } = ProjectionType.Perspective;
+
+    /// <summary>
+    /// Field of view in radians (used for Perspective projection).
+    /// </summary>
+    public double Fov { get; set; } = Math.PI * 0.5;
+
+    /// <summary>
+    /// Half-height of view in world units (used for Orthographic projection).
+    /// </summary>
+    public double OrthoSize { get; set; } = 5.0;
+
+    /// <summary>
+    /// Near clipping plane distance.
+    /// </summary>
+    public double ZNear { get; set; } = 0.01;
+
+    /// <summary>
+    /// Far clipping plane distance.
+    /// </summary>
+    public double ZFar { get; set; } = 128.0;
 
     /// <summary>
     /// Updates orbit angles based on pointer/mouse delta.
@@ -241,5 +281,71 @@ public class OrbitCamera
         _distance = 10.0;
         _target = Vector3.Zero;
         updateCamera = true;
+    }
+
+    /// <summary>
+    /// Creates a ray from the camera through a screen position for picking/selection.
+    /// </summary>
+    /// <param name="screenX">Screen X coordinate relative to canvas (0 = left, canvasWidth = right)</param>
+    /// <param name="screenY">Screen Y coordinate relative to canvas (0 = top, canvasHeight = bottom)</param>
+    /// <param name="screenWidth">Canvas/screen width in pixels</param>
+    /// <param name="screenHeight">Canvas/screen height in pixels</param>
+    /// <returns>Ray with origin at camera position and direction through the screen point</returns>
+    public Ray CreateRayFromScreenPoint(double screenX, double screenY, double screenWidth, double screenHeight)
+    {
+        UpdateMatrices();
+
+        // Convert screen coordinates to normalized device coordinates (NDC)
+        // NDC: X: -1 (left) to +1 (right), Y: -1 (bottom) to +1 (top)
+        double ndcX = (2.0 * screenX / screenWidth) - 1.0;
+        double ndcY = 1.0 - (2.0 * screenY / screenHeight); // Flip Y axis (screen top = 0, NDC top = +1)
+
+        // Create NDC point at near and far planes
+        Vector4 nearPointNDC = new Vector4((float)ndcX, (float)ndcY, -1.0f, 1.0f); // Near plane (Z = -1 in NDC)
+        Vector4 farPointNDC = new Vector4((float)ndcX, (float)ndcY, 1.0f, 1.0f);  // Far plane (Z = +1 in NDC)
+
+        // Get the view-projection matrix
+        Matrix4x4 viewMatrix = ViewMatrix;
+        Matrix4x4 projectionMatrix = CreateProjectionMatrix(screenWidth, screenHeight);
+        Matrix4x4 viewProjectionMatrix = Matrix4x4.Multiply(viewMatrix, projectionMatrix);
+
+        // Calculate inverse view-projection matrix
+        if (!Matrix4x4.Invert(viewProjectionMatrix, out Matrix4x4 inverseViewProjection))
+        {
+            // Fallback: use just inverse view matrix if projection inversion fails
+            Matrix4x4.Invert(viewMatrix, out inverseViewProjection);
+        }
+
+        // Unproject the points from NDC back to world space
+        Vector4 nearPointWorld = Vector4.Transform(nearPointNDC, inverseViewProjection);
+        Vector4 farPointWorld = Vector4.Transform(farPointNDC, inverseViewProjection);
+
+        // Perspective divide (convert from homogeneous coordinates)
+        nearPointWorld /= nearPointWorld.W;
+        farPointWorld /= farPointWorld.W;
+
+        // Create ray
+        Vector3 origin = Position;
+        Vector3 target = new Vector3(farPointWorld.X, farPointWorld.Y, farPointWorld.Z);
+        Vector3 direction = Vector3.Normalize(target - origin);
+
+        return new Ray(origin, direction);
+    }
+
+    /// <summary>
+    /// Creates the projection matrix based on current camera settings and screen dimensions.
+    /// </summary>
+    private Matrix4x4 CreateProjectionMatrix(double screenWidth, double screenHeight)
+    {
+        float aspectRatio = (float)(screenWidth / screenHeight);
+
+        if (ProjectionType == ProjectionType.Orthographic)
+        {
+            return Matrix4x4.CreateOrthographic((float)OrthoSize * 2 * aspectRatio, (float)OrthoSize * 2, (float)ZNear, (float)ZFar);
+        }
+        else
+        {
+            return Matrix4x4.CreatePerspectiveFieldOfView((float)Fov, aspectRatio, (float)ZNear, (float)ZFar);
+        }
     }
 }

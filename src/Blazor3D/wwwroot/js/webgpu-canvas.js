@@ -949,6 +949,18 @@ export function initGPU_Canvas(dotnet, canvasEl, options, viewMatrix) {
     }
 }
 
+// Get bounding client rect for an element
+export function getBoundingClientRect(element) {
+    if (!element) return null;
+    const rect = element.getBoundingClientRect();
+    return {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height
+    };
+}
+
 // Exported function: Updates the view matrix from C#
 // Called when camera changes in WebGPUCanvas.razor
 export function updateViewMatrix(matrixArray) {
