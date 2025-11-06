@@ -134,6 +134,37 @@
 		await _module.InvokeVoidAsync("clearAllLines");
 	}
 
+	/// <summary>
+	/// Adds a text billboard to the WebGPU scene for rendering.
+	/// </summary>
+	public async Task AddTextBillboardAsync(string id, string text, Vector3 position, float[] backgroundColor, float[] textColor)
+	{
+		if (_module is null || !_ready)
+		{
+			throw new InvalidOperationException("WebGPU is not ready. Wait for initialization.");
+		}
+		var data = new { id, text, position = new[] { position.X, position.Y, position.Z }, backgroundColor, textColor };
+		await _module.InvokeVoidAsync("addTextBillboard", data);
+	}
+
+	/// <summary>
+	/// Removes a text billboard from the scene by its ID.
+	/// </summary>
+	public async Task RemoveTextBillboardAsync(string id)
+	{
+		if (_module is null) return;
+		await _module.InvokeVoidAsync("removeTextBillboard", id);
+	}
+
+	/// <summary>
+	/// Clears all text billboards from the scene.
+	/// </summary>
+	public async Task ClearAllTextBillboardsAsync()
+	{
+		if (_module is null) return;
+		await _module.InvokeVoidAsync("clearAllTextBillboards");
+	}
+
 	private void OnPointerDown(PointerEventArgs e)
 	{
 		var currentTime = DateTime.Now;
