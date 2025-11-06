@@ -537,6 +537,8 @@ export class WebGpu_Canvas {
     }
 
     addTextBillboard(billboardData) {
+        // Wrap in async IIFE to use createImageBitmap
+        (async () => {
             if (!this.device) {
                 console.error('WebGPU device not initialized');
                 return;
@@ -545,12 +547,21 @@ export class WebGpu_Canvas {
             const { id, text, position, backgroundColor, textColor } = billboardData;
 
             console.log(`[addTextBillboard] Adding billboard "${id}": "${text}" at (${position.join(', ')})`);
+            console.log(`  - Background color: rgba(${Math.floor(backgroundColor[0] * 255)}, ${Math.floor(backgroundColor[1] * 255)}, ${Math.floor(backgroundColor[2] * 255)}, ${backgroundColor[3]})`);
+            console.log(`  - Text color: rgba(${Math.floor(textColor[0] * 255)}, ${Math.floor(textColor[1] * 255)}, ${Math.floor(textColor[2] * 255)}, ${textColor[3]})`);
+
+            // Check if billboard with this ID already exists and remove it
+            const existingIndex = this.textBillboards.findIndex(b => b.id === id);
+            if (existingIndex >= 0) {
+                console.log(`  - Removing existing billboard with ID "${id}"`);
+                this.removeTextBillboard(id);
+            }
 
             // Create a canvas to render the text
             const canvas = document.createElement('canvas');
             canvas.width = 256;
             canvas.height = 128;
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: false });
 
             // Background
             ctx.fillStyle = `rgba(${Math.floor(backgroundColor[0] * 255)}, ${Math.floor(backgroundColor[1] * 255)}, ${Math.floor(backgroundColor[2] * 255)}, ${backgroundColor[3]})`;
@@ -558,21 +569,29 @@ export class WebGpu_Canvas {
 
             // Text
             ctx.fillStyle = `rgba(${Math.floor(textColor[0] * 255)}, ${Math.floor(textColor[1] * 255)}, ${Math.floor(textColor[2] * 255)}, ${textColor[3]})`;
-            ctx.font = '24px sans-serif';
+            ctx.font = 'bold 24px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(text, canvas.width / 2, canvas.height / 2);
 
+            // Create ImageBitmap for reliable texture copying
+            const bitmap = await createImageBitmap(canvas);
+            
             const texture = this.device.createTexture({
                 size: [canvas.width, canvas.height],
-                format: this.colorFormat,
-                usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+                format: 'rgba8unorm',
+                usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
             });
+            
             this.device.queue.copyExternalImageToTexture(
-                { source: canvas },
-                { texture },
+                { source: bitmap, flipY: true },
+                { texture, premultipliedAlpha: false },
                 [canvas.width, canvas.height]
             );
+            
+            bitmap.close();
+
+            console.log(`  - Texture created successfully`);
 
             // Create quad geometry for the billboard (all vertices at center, offsets computed in shader)
             const vertices = new Float32Array([
@@ -603,7 +622,9 @@ export class WebGpu_Canvas {
             // Create sampler and bind group
             const sampler = this.device.createSampler({
                 magFilter: 'linear',
-                minFilter: 'linear'
+                minFilter: 'linear',
+                addressModeU: 'clamp-to-edge',
+                addressModeV: 'clamp-to-edge'
             });
 
             const bindGroupLayout = this.device.createBindGroupLayout({
@@ -620,6 +641,22 @@ export class WebGpu_Canvas {
                     { binding: 1, resource: texture.createView() }
                 ]
             });
+
+            // Create billboard object FIRST, before async pipeline creation
+            const billboardObj = {
+                id,
+                vertexBuffer,
+                indexBuffer,
+                bindGroup,
+                texture,
+                sampler,
+                indexCount: indices.length,
+                pipeline: null
+            };
+
+            // Store billboard immediately (before pipeline is ready)
+            this.textBillboards.push(billboardObj);
+            console.log(`  - Billboard added to array. Total billboards: ${this.textBillboards.length}`);
 
             // Create shader and pipeline
             const shaderModule = this.device.createShaderModule({ code: BILLBOARD_SHADER });
@@ -653,28 +690,13 @@ export class WebGpu_Canvas {
                 multisample: { count: this.sampleCount ?? 1 }
             }).then((pipeline) => {
                 console.log(`[addTextBillboard] Pipeline created successfully for "${id}"`);
-                const billboard = this.textBillboards.find(b => b.id === id);
-                if (billboard) {
-                    billboard.pipeline = pipeline;
-                    console.log(`[addTextBillboard] Pipeline assigned to billboard "${id}"`);
-                } else {
-                    console.error(`[addTextBillboard] Billboard "${id}" not found after pipeline creation!`);
-                }
+                // Assign pipeline directly to the billboard object we already added
+                billboardObj.pipeline = pipeline;
+                console.log(`[addTextBillboard] Pipeline assigned to billboard "${id}"`);
             }).catch((error) => {
                 console.error(`[addTextBillboard] Pipeline creation FAILED for "${id}":`, error);
             });
-
-            // Store billboard
-            this.textBillboards.push({
-                id,
-                vertexBuffer,
-                indexBuffer,
-                bindGroup,
-                texture,
-                sampler,
-                indexCount: indices.length,
-                pipeline: null
-            });
+        })();
     }
 
     removeTextBillboard(billboardId) {

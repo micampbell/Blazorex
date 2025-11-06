@@ -145,8 +145,8 @@
 			throw new InvalidOperationException("WebGPU is not ready. Wait for initialization.");
 		}
 		var data = new { id, text, position = new[] { position.X, position.Y, position.Z }, 
-		backgroundColor = ColorToJavaScript(backgroundColor).ToArray(), 
-		textColor = ColorToJavaScript(textColor).ToArray() };
+			backgroundColor = ColorToJavaScript(backgroundColor).ToArray(), 
+			textColor = ColorToJavaScript(textColor).ToArray() };
 		await _module.InvokeVoidAsync("addTextBillboard", data);
 	}
 
