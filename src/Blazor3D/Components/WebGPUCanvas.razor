@@ -1,4 +1,5 @@
 @using Blazor3D.Models
+@using System.Drawing
 @using System.Numerics
 @inject IJSRuntime JS
 @implements IAsyncDisposable
@@ -137,13 +138,15 @@
 	/// <summary>
 	/// Adds a text billboard to the WebGPU scene for rendering.
 	/// </summary>
-	public async Task AddTextBillboardAsync(string id, string text, Vector3 position, float[] backgroundColor, float[] textColor)
+	public async Task AddTextBillboardAsync(string id, string text, Vector3 position, Color backgroundColor, Color textColor)
 	{
 		if (_module is null || !_ready)
 		{
 			throw new InvalidOperationException("WebGPU is not ready. Wait for initialization.");
 		}
-		var data = new { id, text, position = new[] { position.X, position.Y, position.Z }, backgroundColor, textColor };
+		var data = new { id, text, position = new[] { position.X, position.Y, position.Z }, 
+		backgroundColor = ColorToJavaScript(backgroundColor).ToArray(), 
+		textColor = ColorToJavaScript(textColor).ToArray() };
 		await _module.InvokeVoidAsync("addTextBillboard", data);
 	}
 
@@ -175,8 +178,8 @@
 
 		// Check for double-click (left mouse button only)
 		if (e.Button == 0 && 
-		    timeSinceLastClick <= DoubleClickTimeMs && 
-		    distanceFromLastClick <= DoubleClickDistancePx)
+			timeSinceLastClick <= DoubleClickTimeMs && 
+			distanceFromLastClick <= DoubleClickDistancePx)
 		{
 			// Double-click detected - handle it here
 			OnDoubleClick(e);
@@ -207,6 +210,14 @@
 		}
 	}
 
+	public static IEnumerable<float> ColorToJavaScript(Color c)
+	{
+		yield return c.R / 255f;
+		yield return c.G / 255f;
+		yield return c.B / 255f;
+		yield return c.A / 255f;
+	}
+
 	private async Task OnDoubleClick(PointerEventArgs e)
 	{
 		if (_module is null || !_ready)
@@ -226,6 +237,8 @@
 		// Create picking ray from camera through mouse position
 		var pickingRay = _camera.CreateRayFromScreenPoint(relativeX, relativeY, canvasWidth, canvasHeight);
 
+		await AddTextBillboardAsync("myBillboard", "Hello World", pickingRay.Anchor + 5 * pickingRay.Direction, System.Drawing.Color.Blue,
+		System.Drawing.Color.White);
 		// Raise event for subscribers to handle picking
 		OnPickingRayCreated?.Invoke(pickingRay);
 	}

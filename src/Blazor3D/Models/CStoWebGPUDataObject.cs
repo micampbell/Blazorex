@@ -1,3 +1,4 @@
+using Blazor3D.Components;
 using System.Drawing;
 using System.Numerics;
 
@@ -27,13 +28,7 @@ public abstract record CStoWebGPUDataObject
     protected IEnumerable<float> Coordinates(Vector3 v)
     { yield return v.X; yield return v.Y; yield return v.Z; }
 
-    protected IEnumerable<float> ColorParts(Color c)
-    {
-        yield return c.R / 255f;
-        yield return c.G / 255f;
-        yield return c.B / 255f;
-        yield return c.A / 255f;
-    }
+    protected IEnumerable<float> ColorParts(Color c) => WebGPUCanvas.ColorToJavaScript(c);
 
     internal abstract object CreateJavascriptData();
 }

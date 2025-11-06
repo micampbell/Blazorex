@@ -197,7 +197,7 @@ export class WebGpu_Canvas {
     get defaultRenderPassDescriptor() {
         // The current texture view may change every frame; rebuild the color target reference here.
         const colorView = this.context.getCurrentTexture().createView({ format: `${this.colorFormat}-srgb` });
-        if (this.sampleCount > 1) this colorAttachment.resolveTarget = colorView; else this.colorAttachment.view = colorView;
+        if (this.sampleCount > 1) this.colorAttachment.resolveTarget = colorView; else this.colorAttachment.view = colorView;
         return this.renderPassDescriptor;
     }
 
@@ -537,141 +537,144 @@ export class WebGpu_Canvas {
     }
 
     addTextBillboard(billboardData) {
-        if (!this.device) {
-            console.error('WebGPU device not initialized');
-            return;
-        }
-
-        const { id, text, position, backgroundColor, textColor } = billboardData;
-
-        console.log(`[addTextBillboard] Adding billboard "${id}": "${text}" at (${position.join(', ')})`);
-
-        // Create a canvas to render the text
-        const canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 128;
-        const ctx = canvas.getContext('2d');
-
-        // Background
-        ctx.fillStyle = `rgba(${Math.floor(backgroundColor[0] * 255)}, ${Math.floor(backgroundColor[1] * 255)}, ${Math.floor(backgroundColor[2] * 255)}, ${backgroundColor[3]})`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Text
-        ctx.fillStyle = `rgba(${Math.floor(textColor[0] * 255)}, ${Math.floor(textColor[1] * 255)}, ${Math.floor(textColor[2] * 255)}, ${textColor[3]})`;
-        ctx.font = '24px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-
-        // Create WebGPU texture from canvas
-        const texture = this.device.createTexture({
-            size: [canvas.width, canvas.height],
-            format: 'rgba8unorm',
-            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
-        });
-        this.device.queue.copyExternalImageToTexture(
-            { source: canvas },
-            { texture },
-            [canvas.width, canvas.height]
-        );
-
-        // Create quad geometry for the billboard
-        const size = 1.0; // Billboard size in world units
-        const vertices = new Float32Array([
-            // x, y, z, u, v
-            position[0] - size, position[1] - size, position[2], 0, 1,
-            position[0] + size, position[1] - size, position[2], 1, 1,
-            position[0] - size, position[1] + size, position[2], 0, 0,
-            position[0] + size, position[1] + size, position[2], 1, 0,
-        ]);
-
-        const vertexBuffer = this.device.createBuffer({
-            size: vertices.byteLength,
-            usage: GPUBufferUsage.VERTEX,
-            mappedAtCreation: true
-        });
-        new Float32Array(vertexBuffer.getMappedRange()).set(vertices);
-        vertexBuffer.unmap();
-
-        const indices = new Uint16Array([0, 1, 2, 1, 3, 2]);
-        const indexBuffer = this.device.createBuffer({
-            size: indices.byteLength,
-            usage: GPUBufferUsage.INDEX,
-            mappedAtCreation: true
-        });
-        new Uint16Array(indexBuffer.getMappedRange()).set(indices);
-        indexBuffer.unmap();
-
-        // Create sampler and bind group
-        const sampler = this.device.createSampler({
-            magFilter: 'linear',
-            minFilter: 'linear'
-        });
-
-        const bindGroupLayout = this.device.createBindGroupLayout({
-            entries: [
-                { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
-                { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: {} }
-            ]
-        });
-
-        const bindGroup = this.device.createBindGroup({
-            layout: bindGroupLayout,
-            entries: [
-                { binding: 0, resource: sampler },
-                { binding: 1, resource: texture.createView() }
-            ]
-        });
-
-        // Create shader and pipeline
-        const shaderModule = this.device.createShaderModule({ code: BILLBOARD_SHADER });
-        const pipelineLayout = this.device.createPipelineLayout({
-            bindGroupLayouts: [this.frameBindGroupLayout, bindGroupLayout]
-        });
-
-        this.device.createRenderPipelineAsync({
-            layout: pipelineLayout,
-            vertex: {
-                module: shaderModule,
-                entryPoint: 'vertexMain',
-                buffers: [{
-                    arrayStride: 20,
-                    attributes: [
-                        { shaderLocation: 0, offset: 0, format: 'float32x3' },
-                        { shaderLocation: 1, offset: 12, format: 'float32x2' }
-                    ]
-                }]
-            },
-            fragment: {
-                module: shaderModule,
-                entryPoint: 'fragmentMain',
-                targets: [{ format: `${this.colorFormat}-srgb` }]
-            },
-            depthStencil: {
-                format: this.depthFormat,
-                depthWriteEnabled: true,
-                depthCompare: 'less-equal'
-            },
-            multisample: { count: this.sampleCount ?? 1 }
-        }).then((pipeline) => {
-            console.log(`[addTextBillboard] Pipeline created for "${id}"`);
-            const billboard = this.textBillboards.find(b => b.id === id);
-            if (billboard) {
-                billboard.pipeline = pipeline;
+            if (!this.device) {
+                console.error('WebGPU device not initialized');
+                return;
             }
-        });
 
-        // Store billboard
-        this.textBillboards.push({
-            id,
-            vertexBuffer,
-            indexBuffer,
-            bindGroup,
-            texture,
-            sampler,
-            indexCount: indices.length,
-            pipeline: null
-        });
+            const { id, text, position, backgroundColor, textColor } = billboardData;
+
+            console.log(`[addTextBillboard] Adding billboard "${id}": "${text}" at (${position.join(', ')})`);
+
+            // Create a canvas to render the text
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            // Background
+            ctx.fillStyle = `rgba(${Math.floor(backgroundColor[0] * 255)}, ${Math.floor(backgroundColor[1] * 255)}, ${Math.floor(backgroundColor[2] * 255)}, ${backgroundColor[3]})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Text
+            ctx.fillStyle = `rgba(${Math.floor(textColor[0] * 255)}, ${Math.floor(textColor[1] * 255)}, ${Math.floor(textColor[2] * 255)}, ${textColor[3]})`;
+            ctx.font = '24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+            const texture = this.device.createTexture({
+                size: [canvas.width, canvas.height],
+                format: this.colorFormat,
+                usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+            });
+            this.device.queue.copyExternalImageToTexture(
+                { source: canvas },
+                { texture },
+                [canvas.width, canvas.height]
+            );
+
+            // Create quad geometry for the billboard (all vertices at center, offsets computed in shader)
+            const vertices = new Float32Array([
+                // x, y, z, u, v
+                position[0], position[1], position[2], 0, 1,  // bottom-left
+                position[0], position[1], position[2], 1, 1,  // bottom-right
+                position[0], position[1], position[2], 0, 0,  // top-left
+                position[0], position[1], position[2], 1, 0,  // top-right
+            ]);
+
+            const vertexBuffer = this.device.createBuffer({
+                size: vertices.byteLength,
+                usage: GPUBufferUsage.VERTEX,
+                mappedAtCreation: true
+            });
+            new Float32Array(vertexBuffer.getMappedRange()).set(vertices);
+            vertexBuffer.unmap();
+
+            const indices = new Uint16Array([0, 1, 2, 1, 3, 2]);
+            const indexBuffer = this.device.createBuffer({
+                size: indices.byteLength,
+                usage: GPUBufferUsage.INDEX,
+                mappedAtCreation: true
+            });
+            new Uint16Array(indexBuffer.getMappedRange()).set(indices);
+            indexBuffer.unmap();
+
+            // Create sampler and bind group
+            const sampler = this.device.createSampler({
+                magFilter: 'linear',
+                minFilter: 'linear'
+            });
+
+            const bindGroupLayout = this.device.createBindGroupLayout({
+                entries: [
+                    { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+                    { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: {} }
+                ]
+            });
+
+            const bindGroup = this.device.createBindGroup({
+                layout: bindGroupLayout,
+                entries: [
+                    { binding: 0, resource: sampler },
+                    { binding: 1, resource: texture.createView() }
+                ]
+            });
+
+            // Create shader and pipeline
+            const shaderModule = this.device.createShaderModule({ code: BILLBOARD_SHADER });
+            const pipelineLayout = this.device.createPipelineLayout({
+                bindGroupLayouts: [this.frameBindGroupLayout, bindGroupLayout]
+            });
+
+            this.device.createRenderPipelineAsync({
+                layout: pipelineLayout,
+                vertex: {
+                    module: shaderModule,
+                    entryPoint: 'vertexMain',
+                    buffers: [{
+                        arrayStride: 20,
+                        attributes: [
+                            { shaderLocation: 0, offset: 0, format: 'float32x3' },
+                            { shaderLocation: 1, offset: 12, format: 'float32x2' }
+                        ]
+                    }]
+                },
+                fragment: {
+                    module: shaderModule,
+                    entryPoint: 'fragmentMain',
+                    targets: [{ format: `${this.colorFormat}-srgb` }]
+                },
+                depthStencil: {
+                    format: this.depthFormat,
+                    depthWriteEnabled: true,
+                    depthCompare: 'less-equal'
+                },
+                multisample: { count: this.sampleCount ?? 1 }
+            }).then((pipeline) => {
+                console.log(`[addTextBillboard] Pipeline created successfully for "${id}"`);
+                const billboard = this.textBillboards.find(b => b.id === id);
+                if (billboard) {
+                    billboard.pipeline = pipeline;
+                    console.log(`[addTextBillboard] Pipeline assigned to billboard "${id}"`);
+                } else {
+                    console.error(`[addTextBillboard] Billboard "${id}" not found after pipeline creation!`);
+                }
+            }).catch((error) => {
+                console.error(`[addTextBillboard] Pipeline creation FAILED for "${id}":`, error);
+            });
+
+            // Store billboard
+            this.textBillboards.push({
+                id,
+                vertexBuffer,
+                indexBuffer,
+                bindGroup,
+                texture,
+                sampler,
+                indexCount: indices.length,
+                pipeline: null
+            });
     }
 
     removeTextBillboard(billboardId) {
@@ -692,6 +695,201 @@ export class WebGpu_Canvas {
             if (billboard.texture) billboard.texture.destroy();
         }
         this.textBillboards = [];
+    }
+
+
+    // Add a mesh to the scene
+    addMesh(meshData) {
+        if (!this.device) {
+            console.error('WebGPU device not initialized');
+            return;
+        }
+
+        const { id, vertices, indices, colors, singleColor } = meshData;
+
+        console.log(`[addMesh] Adding mesh "${id}":`);
+        console.log(`  - Vertices: ${vertices.length / 3} (${vertices.length} floats)`);
+        console.log(`  - Indices: ${indices.length} (${indices.length / 3} triangles)`);
+
+
+        // Create vertex buffer (positions only)
+        const vertexBuffer = this.device.createBuffer({
+            size: vertices.length * Float32Array.BYTES_PER_ELEMENT,  // Calculate size directly
+            usage: GPUBufferUsage.VERTEX,
+            mappedAtCreation: true
+        });
+        // vertexBuffer.getMappedRange(): Since the buffer was created with ArrayBuffer(raw memory view)
+        // that the CPU can write to. It's like a "window" into the GPU buffer's memory. Then,  the
+        // new Float32Array(vertexBuffer.getMappedRange()) creates a Float32Array view over that raw memory.
+        // It doesn't copy data yet—it just provides a typed interface (floats) to the buffer's bytes.
+        // Finally, the ".set(vertexArray)" copies the contents of vertexArray into the buffer's memory. 
+        // It's efficient—no intermediate allocations, just a direct memory copy.
+        new Float32Array(vertexBuffer.getMappedRange()).set(vertices);
+        vertexBuffer.unmap(); // This method releases the CPU's access to the GPU buffer's memory.
+        // When you create a buffer with mappedAtCreation: true, the buffer is initially mapped (CPU
+        // can read / write to it). After copying data(via.set() on the previous line), we need to call
+        // unmap() it, making the buffer GPU - exclusive again.
+
+        // Create index buffer ... This folows the same logic above for the vertex buffer.
+        const indexBuffer = this.device.createBuffer({
+            size: indices.length * Uint16Array.BYTES_PER_ELEMENT,
+            usage: GPUBufferUsage.INDEX,
+            mappedAtCreation: true
+        });
+        new Uint16Array(indexBuffer.getMappedRange()).set(indices);
+        indexBuffer.unmap();
+
+        let shaderCode = null;
+        let bindGroup = null;
+        let colorBuffer = null;
+        if (singleColor) {
+            // Uniform color throughout 
+            console.log(`  - Color Mode is UNIFORM`);
+            shaderCode = MESH_SHADER;
+
+            colorBuffer = this.device.createBuffer({
+                size: 4 * Float32Array.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                mappedAtCreation: true
+            });
+            new Float32Array(colorBuffer.getMappedRange()).set([colors[0], colors[1], colors[2], colors[3]]);
+            colorBuffer.unmap();
+
+            const bindGroupLayout = this.device.createBindGroupLayout({
+                label: `Mesh ${id} BGL`,
+                entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }]
+            });
+            bindGroup = this.device.createBindGroup({
+                label: `Mesh ${id} BG`,
+                layout: bindGroupLayout,
+                entries: [{ binding: 0, resource: { buffer: colorBuffer } }]
+            });
+        } else {
+            // Colors are per-vertex, so faces are gradients
+            console.log(`  - Color Mode is PER-VERTEX`);
+            shaderCode = MESH_SHADER_VERTEX_COLOR;
+
+            colorBuffer = this.device.createBuffer({
+                size: colors.length * Float32Array.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.VERTEX,
+                mappedAtCreation: true
+            });
+            new Float32Array(colorBuffer.getMappedRange()).set(colors);
+            colorBuffer.unmap();
+        }
+
+        // Create shader module (now for both modes)
+        const shaderModule = this.device.createShaderModule({ code: shaderCode });
+
+        // Define vertex buffer layout (conditionally for both modes)
+        const vertexBufferLayout = [
+            {
+                arrayStride: 12, // 3 floats (x, y, z)
+                attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }]
+            }
+        ];
+
+        if (!singleColor) {  // Add color attribute only for per-vertex mode
+            vertexBufferLayout.push({
+                arrayStride: 16, // 4 floats (r, g, b, a)
+                attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x4' }]
+            });
+        }
+
+        // Create pipeline
+        const pipelineLayout = singleColor
+            ? this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout, bindGroup.layout] })
+            : this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout] });
+
+        this.device.createRenderPipelineAsync({
+            label: `Mesh ${id} Pipeline`,
+            layout: pipelineLayout,
+            vertex: {
+                module: shaderModule,  // Now always defined
+                entryPoint: 'vertexMain',
+                buffers: vertexBufferLayout  // Now always defined
+            },
+            fragment: {
+                module: shaderModule,
+                entryPoint: 'fragmentMain',
+                targets: [{ format: `${this.colorFormat}-srgb` }]
+            },
+            depthStencil: {
+                format: this.depthFormat,
+                depthWriteEnabled: true,
+                depthCompare: 'less-equal'
+            },
+            multisample: { count: this.sampleCount ?? 1 },
+            primitive: {
+                topology: 'triangle-list',
+                cullMode: 'back'
+            }
+        }).then((pipeline) => {
+            console.log(`[addMesh] Pipeline created successfully for "${id}"`);
+            const mesh = this.meshes.find(m => m.id === id);
+            if (mesh) {
+                mesh.pipeline = pipeline;
+                console.log(`[addMesh] Pipeline assigned to mesh "${id}"`);
+            } else {
+                console.error(`[addMesh] Mesh "${id}" not found after pipeline creation!`);
+            }
+        }).catch((error) => {
+            console.error(`[addMesh] Pipeline creation FAILED for "${id}":`, error);
+        });
+
+        // Store mesh
+        this.meshes.push({
+            id,
+            vertexBuffer,
+            colorBuffer,
+            indexBuffer,
+            bindGroup,
+            singleColor,
+            indexCount: indices.length,
+            pipeline: null
+        });
+    }
+
+    removeMesh(meshId) {
+        const index = this.meshes.findIndex(m => m.id === meshId);
+        if (index >= 0) {
+            const mesh = this.meshes[index];
+            if (mesh.vertexBuffer) mesh.vertexBuffer.destroy();
+            if (mesh.colorBuffer) mesh.colorBuffer.destroy();
+            if (mesh.indexBuffer) mesh.indexBuffer.destroy();
+            this.meshes.splice(index, 1);
+        }
+    }
+
+    clearAllMeshes() {
+        for (const mesh of this.meshes) {
+            if (mesh.vertexBuffer) mesh.vertexBuffer.destroy();
+            if (mesh.colorBuffer) mesh.colorBuffer.destroy();
+            if (mesh.indexBuffer) mesh.indexBuffer.destroy();
+        }
+        this.meshes = [];
+    }
+
+    removeLines(lineId) {
+        const index = this.lines.findIndex(l => l.id === lineId);
+        if (index >= 0) {
+            const line = this.lines[index];
+            if (line.vertexBuffer) line.vertexBuffer.destroy();
+            if (line.colorBuffer) line.colorBuffer.destroy();
+            if (line.thicknessBuffer) line.thicknessBuffer.destroy();
+            if (line.indexBuffer) line.indexBuffer.destroy();
+            this.lines.splice(index, 1);
+        }
+    }
+
+    clearAllLines() {
+        for (const line of this.lines) {
+            if (line.vertexBuffer) line.vertexBuffer.destroy();
+            if (line.colorBuffer) line.colorBuffer.destroy();
+            if (line.thicknessBuffer) line.thicknessBuffer.destroy();
+            if (line.indexBuffer) line.indexBuffer.destroy();
+        }
+        this.lines = [];
     }
 
     // Update the view matrix from a float array
@@ -901,7 +1099,12 @@ const BILLBOARD_SHADER = `
 
   @vertex fn vertexMain(in: VertexIn) -> VertexOut {
     var out: VertexOut;
-    out.pos = camera.projection * camera.view * vec4f(in.pos, 1.0);
+    let size = 1.0;
+    let offset = vec3f((in.uv.x - 0.5) * 2.0 * size, (in.uv.y - 0.5) * 2.0 * size, 0.0);
+    let right = vec3f(camera.view[0][0], camera.view[1][0], camera.view[2][0]);
+    let up = vec3f(camera.view[0][1], camera.view[1][1], camera.view[2][1]);
+    let world_pos = in.pos + right * offset.x + up * offset.y;
+    out.pos = camera.projection * camera.view * vec4f(world_pos, 1.0);
     out.uv = in.uv;
     return out;
   }

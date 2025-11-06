@@ -7,12 +7,12 @@ namespace Blazor3D.Models;
 /// </summary>
 public struct Ray
 {
-    public Vector3 Origin;
+    public Vector3 Anchor;
     public Vector3 Direction;
 
     public Ray(Vector3 origin, Vector3 direction)
     {
-        Origin = origin;
+        Anchor = origin;
         Direction = direction;
     }
 }
@@ -23,16 +23,6 @@ public struct Ray
 /// </summary>
 public class OrbitCamera
 {
-    // Orbit angles in radians
-    private double _orbitX;
-    private double _orbitY;
-
-    // Camera distance from target
-    private double _distance = 10.0;
-
-    // Camera target position
-    private Vector3 _target = Vector3.Zero;
-
     // Cached matrices
     private Matrix4x4 _viewMatrix = Matrix4x4.Identity;
     private Matrix4x4 _cameraMatrix = Matrix4x4.Identity;
@@ -41,28 +31,29 @@ public class OrbitCamera
     /// <summary>
     /// Vertical orbit angle in radians (pitch).
     /// </summary>
-    public double OrbitX
+    public double PolarAngle
     {
-        get => _orbitX;
+        get => _polarAngle;
         set
         {
-            _orbitX = ConstrainXOrbit ? Math.Clamp(value, MinOrbitX, MaxOrbitX) : value;
+            _polarAngle = ConstrainPolar ? Math.Clamp(value, MinPolar, MaxPolar) : value;
             updateCamera = true;
         }
     }
+    private double _polarAngle;
 
     /// <summary>
     /// Horizontal orbit angle in radians (yaw).
     /// </summary>
-    public double OrbitY
+    public double AzimuthAngle
     {
-        get => _orbitY;
+        get => _azimuthAngle;
         set
         {
             var newValue = value;
-            if (ConstrainYOrbit)
+            if (ConstrainAzimuth)
             {
-                newValue = Math.Clamp(value, MinOrbitY, MaxOrbitY);
+                newValue = Math.Clamp(value, MinAzimuth, MaxAzimuth);
             }
             else
             {
@@ -70,10 +61,12 @@ public class OrbitCamera
                 while (newValue < -Math.PI) newValue += Math.PI * 2;
                 while (newValue >= Math.PI) newValue -= Math.PI * 2;
             }
-            _orbitY = newValue;
+            _azimuthAngle = newValue;
             updateCamera = true;
         }
     }
+    // Orbit angles in radians
+    private double _azimuthAngle;
 
     /// <summary>
     /// Distance from camera to target (zoom level).
@@ -88,6 +81,9 @@ public class OrbitCamera
         }
     }
 
+    // Camera distance from target
+    private double _distance = 10.0;
+
     /// <summary>
     /// Point in 3D space that the camera orbits around.
     /// </summary>
@@ -100,14 +96,16 @@ public class OrbitCamera
             updateCamera = true;
         }
     }
+    // Camera target position
+    private Vector3 _target = Vector3.Zero;
 
     // Orbit constraints
-    public double MaxOrbitX { get; set; } = Math.PI * 0.49; // Slightly less than 90° to avoid gimbal lock
-    public double MinOrbitX { get; set; } = -Math.PI * 0.49;
-    public double MaxOrbitY { get; set; } = Math.PI;
-    public double MinOrbitY { get; set; } = -Math.PI;
-    public bool ConstrainXOrbit { get; set; } = true;
-    public bool ConstrainYOrbit { get; set; } = false;
+    public double MaxPolar { get; set; } = Math.PI * 0.49; // Slightly less than 90° to avoid gimbal lock
+    public double MinPolar { get; set; } = -Math.PI * 0.49;
+    public double MaxAzimuth { get; set; } = Math.PI;
+    public double MinAzimuth { get; set; } = -Math.PI;
+    public bool ConstrainPolar { get; set; } = true;
+    public bool ConstrainAzimuth { get; set; } = false;
 
     // Distance constraints
     public double MaxDistance { get; set; } = 50.0;
@@ -148,12 +146,12 @@ public class OrbitCamera
     /// <summary>
     /// Updates orbit angles based on pointer/mouse delta.
     /// </summary>
-    /// <param name="deltaX">Horizontal movement in pixels</param>
+    /// <param name="azimuth">Horizontal movement in pixels</param>
     /// <param name="deltaY">Vertical movement in pixels</param>
-    public void Orbit(double deltaX, double deltaY)
+    public void Orbit(double azimuth, double polar)
     {
-        OrbitY += deltaX * OrbitSensitivity;
-        OrbitX += deltaY * OrbitSensitivity;
+        AzimuthAngle += azimuth * OrbitSensitivity;
+        PolarAngle += polar * OrbitSensitivity;
     }
 
     /// <summary>
@@ -262,8 +260,8 @@ public class OrbitCamera
         // Build camera matrix: translate to target, rotate, then move back by distance
         _cameraMatrix = Matrix4x4.Identity;
         _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateTranslation(_target));
-        _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateRotationY(-(float)_orbitY));
-        _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateRotationX(-(float)_orbitX));
+        _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateRotationY(-(float)_azimuthAngle));
+        _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateRotationX(-(float)_polarAngle));
         _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateTranslation(0, 0, (float)_distance));
 
         // View matrix is inverse of camera matrix
@@ -276,8 +274,8 @@ public class OrbitCamera
     /// </summary>
     public void Reset()
     {
-        _orbitX = 0;
-        _orbitY = 0;
+        _polarAngle = 0;
+        _azimuthAngle = 0;
         _distance = 10.0;
         _target = Vector3.Zero;
         updateCamera = true;
