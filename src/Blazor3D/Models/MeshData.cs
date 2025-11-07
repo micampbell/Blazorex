@@ -95,7 +95,7 @@ public record MeshData : CStoWebGPUDataObject
             Vertices = vertices,
             Indices = indices,
             Colors = colors,
-            ColorMode = MeshColoring.PerTriangle
+            ColorMode = MeshColoring.UniformColor
         };
     }
 

@@ -752,6 +752,7 @@ export class WebGpu_Canvas {
 
         let shaderCode = null;
         let bindGroup = null;
+        let bindGroupLayout = null;
         let colorBuffer = null;
         if (singleColor) {
             // Uniform color throughout 
@@ -766,7 +767,7 @@ export class WebGpu_Canvas {
             new Float32Array(colorBuffer.getMappedRange()).set([colors[0], colors[1], colors[2], colors[3]]);
             colorBuffer.unmap();
 
-            const bindGroupLayout = this.device.createBindGroupLayout({
+            bindGroupLayout = this.device.createBindGroupLayout({
                 label: `Mesh ${id} BGL`,
                 entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }]
             });
@@ -809,7 +810,7 @@ export class WebGpu_Canvas {
 
         // Create pipeline
         const pipelineLayout = singleColor
-            ? this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout, bindGroup.layout] })
+            ? this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout, bindGroupLayout] })
             : this.device.createPipelineLayout({ bindGroupLayouts: [this.frameBindGroupLayout] });
 
         this.device.createRenderPipelineAsync({
