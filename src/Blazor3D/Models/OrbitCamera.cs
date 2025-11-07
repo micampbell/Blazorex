@@ -23,31 +23,33 @@ public struct Ray
 /// </summary>
 public class OrbitCamera
 {
-    // Cached matrices
-    private Matrix4x4 _viewMatrix = Matrix4x4.Identity;
-    private Matrix4x4 _cameraMatrix = Matrix4x4.Identity;
-    private bool updateCamera = true;
-
+    internal OrbitCamera(Vector3 target)
+    {
+        Target = target;
+        AzimuthAngle = Math.PI / 4; // Default to 45° for better initial view
+        polarAngle = Math.PI / 6; // Default to 30° for better initial view
+    }
+    #region Properites/Fields
     /// <summary>
     /// Vertical orbit angle in radians (pitch).
     /// </summary>
     public double PolarAngle
     {
-        get => _polarAngle;
+        get => polarAngle;
         set
         {
-            _polarAngle = ConstrainPolar ? Math.Clamp(value, MinPolar, MaxPolar) : value;
+            polarAngle = ConstrainPolar ? Math.Clamp(value, MinPolar, MaxPolar) : value;
             updateCamera = true;
         }
     }
-    private double _polarAngle;
+    private double polarAngle;
 
     /// <summary>
     /// Horizontal orbit angle in radians (yaw).
     /// </summary>
     public double AzimuthAngle
     {
-        get => _azimuthAngle;
+        get => azimuthAngle;
         set
         {
             var newValue = value;
@@ -58,46 +60,45 @@ public class OrbitCamera
             else
             {
                 // Wrap to [-π, π]
-                while (newValue < -Math.PI) newValue += Math.PI * 2;
-                while (newValue >= Math.PI) newValue -= Math.PI * 2;
+                while (newValue < -Math.PI) newValue += Math.Tau;
+                while (newValue >= Math.PI) newValue -= Math.Tau;
             }
-            _azimuthAngle = newValue;
+            azimuthAngle = newValue;
             updateCamera = true;
         }
     }
     // Orbit angles in radians
-    private double _azimuthAngle;
+    private double azimuthAngle;
 
     /// <summary>
     /// Distance from camera to target (zoom level).
     /// </summary>
     public double Distance
     {
-        get => _distance;
+        get => distance;
         set
         {
-            _distance = ConstrainDistance ? Math.Clamp(value, MinDistance, MaxDistance) : value;
+            distance = ConstrainDistance ? Math.Clamp(value, MinDistance, MaxDistance) : value;
             updateCamera = true;
         }
     }
 
     // Camera distance from target
-    private double _distance = 10.0;
+    private double distance = 10.0;
 
     /// <summary>
     /// Point in 3D space that the camera orbits around.
     /// </summary>
-    public Vector3 Target
+    private Vector3 Target
     {
-        get => _target;
+        get => target;
         set
         {
-            _target = value;
+            target = value;
             updateCamera = true;
         }
     }
-    // Camera target position
-    private Vector3 _target = Vector3.Zero;
+    private Vector3 target = Vector3.Zero;
 
     // Orbit constraints
     public double MaxPolar { get; set; } = Math.PI * 0.49; // Slightly less than 90° to avoid gimbal lock
@@ -113,10 +114,10 @@ public class OrbitCamera
     public bool ConstrainDistance { get; set; } = true;
 
     // Sensitivity settings
-    public double OrbitSensitivity { get; set; } = 0.005;
-    public double ZoomSensitivity { get; set; } = 0.01; // Increased for better zoom response
-    public double PanSensitivity { get; set; } = 0.01;
-    public double PanSpeedMultiplier { get; set; } = 2.0; // Multiplier when Shift is held
+    public double OrbitSensitivity { get; set; } = 0.003;
+    public double ZoomSensitivity { get; set; } = 0.001; // Increased for better zoom response
+    public double PanSensitivity { get; set; } = 0.007;
+    public double PanSpeedMultiplier { get; set; } = 3.0; // Multiplier when Shift is held
 
     /// <summary>
     /// Camera projection type (Perspective or Orthographic).
@@ -142,7 +143,9 @@ public class OrbitCamera
     /// Far clipping plane distance.
     /// </summary>
     public double ZFar { get; set; } = 128.0;
+    #endregion
 
+    #region Controlling the Orbit (with mouse or keys)
     /// <summary>
     /// Updates orbit angles based on pointer/mouse delta.
     /// </summary>
@@ -171,21 +174,17 @@ public class OrbitCamera
     /// <param name="deltaX">Horizontal movement in pixels</param>
     /// <param name="deltaY">Vertical movement in pixels</param>
     /// <param name="shiftPressed">Whether Shift key is pressed for faster movement</param>
-    public void Pan(double deltaX, double deltaY, bool shiftPressed = false)
+    public void PanWithMouse(double deltaX, double deltaY, bool shiftPressed = false)
     {
         // Calculate pan speed based on distance (closer = slower pan)
         var panSpeed = PanSensitivity * Distance * (shiftPressed ? PanSpeedMultiplier : 1.0);
-
-        // Get camera's right and up vectors
-        UpdateMatrices();
-        Matrix4x4.Invert(_viewMatrix, out var cameraMatrix);
-
-        var right = new Vector3(cameraMatrix.M11, cameraMatrix.M12, cameraMatrix.M13);
-        var up = new Vector3(cameraMatrix.M21, cameraMatrix.M22, cameraMatrix.M23);
+        var camMatrix = CameraMatrix;
+        var right = new Vector3(camMatrix.M11, camMatrix.M12, camMatrix.M13);
+        var up = new Vector3(camMatrix.M21, camMatrix.M22, camMatrix.M23);
 
         // Pan in camera space
-        _target += right * (float)(-deltaX * panSpeed);
-        _target += up * (float)(deltaY * panSpeed);
+        Target += right * (float)(-deltaX * panSpeed);
+        Target += up * (float)(deltaY * panSpeed);
         updateCamera = true;
     }
 
@@ -196,25 +195,24 @@ public class OrbitCamera
     /// <param name="right">Right/left movement (-1 to 1, A/D keys)</param>
     /// <param name="up">Up/down movement (-1 to 1, typically Q/E keys)</param>
     /// <param name="shiftPressed">Whether Shift key is pressed for faster movement</param>
-    public void PanDirectional(double forward, double right, double up, bool shiftPressed = false)
+    public void PanWithKeyboard(double forward, double right, double up, bool shiftPressed = false)
     {
         var panSpeed = PanSensitivity * Distance * (shiftPressed ? PanSpeedMultiplier : 1.0);
-
-        // Get camera's directional vectors
-        UpdateMatrices();
-        Matrix4x4.Invert(_viewMatrix, out var cameraMatrix);
-
-        var rightVec = new Vector3(cameraMatrix.M11, cameraMatrix.M12, cameraMatrix.M13);
-        var upVec = new Vector3(cameraMatrix.M21, cameraMatrix.M22, cameraMatrix.M23);
-        var forwardVec = new Vector3(cameraMatrix.M31, cameraMatrix.M32, cameraMatrix.M33);
+        var camMatrix = CameraMatrix;
+        var rightVec = new Vector3(camMatrix.M11, camMatrix.M12, camMatrix.M13);
+        var upVec = new Vector3(camMatrix.M21, camMatrix.M22, camMatrix.M23);
+        var forwardVec = new Vector3(camMatrix.M31, camMatrix.M32, camMatrix.M33);
 
         // Move target in camera space
-        _target += rightVec * (float)(right * panSpeed * 5.0); // Scale up for keyboard input
-        _target += upVec * (float)(up * panSpeed * 5.0);
-        _target += forwardVec * (float)(-forward * panSpeed * 5.0); // Negative for intuitive forward direction
+        Target += rightVec * (float)(right * panSpeed * 5.0); // Scale up for keyboard input
+        Target += upVec * (float)(up * panSpeed * 5.0);
+        Target += forwardVec * (float)(-forward * panSpeed * 5.0); // Negative for intuitive forward direction
         updateCamera = true;
     }
+    #endregion
 
+    #region Matrix Work
+    private bool updateCamera = true;
     /// <summary>
     /// Gets the view matrix for rendering.
     /// </summary>
@@ -222,10 +220,24 @@ public class OrbitCamera
     {
         get
         {
-            UpdateMatrices();
-            return _viewMatrix;
+            if (updateCamera) UpdateMatrices();
+            return viewMatrix;
         }
     }
+    private Matrix4x4 viewMatrix;
+
+    /// <summary>
+    /// Gets the Camera matrix for rendering.
+    /// </summary>
+    public Matrix4x4 CameraMatrix
+    {
+        get
+        {
+            if (updateCamera) UpdateMatrices();
+            return cameraMatrix;
+        }
+    }
+    private Matrix4x4 cameraMatrix;
 
     /// <summary>
     /// Gets the camera position in world space.
@@ -234,16 +246,16 @@ public class OrbitCamera
     {
         get
         {
-            UpdateMatrices();
-            Matrix4x4.Invert(_viewMatrix, out var cameraMatrix);
-            return new Vector3(cameraMatrix.M41, cameraMatrix.M42, cameraMatrix.M43);
+            if (updateCamera) UpdateMatrices();
+            return position;
         }
     }
+    private Vector3 position;
 
     /// <summary>
     /// Returns the view matrix as a float array for JavaScript interop.
     /// </summary>
-    public float[] GetViewMatrixArray()
+    public float[] ConvertForJavaScript()
     {
         var m = ViewMatrix;
         return
@@ -255,17 +267,14 @@ public class OrbitCamera
 
     private void UpdateMatrices()
     {
-        if (!updateCamera) return;
-
-        // Build camera matrix: translate to target, rotate, then move back by distance
-        _cameraMatrix = Matrix4x4.Identity;
-        _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateTranslation(_target));
-        _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateRotationY(-(float)_azimuthAngle));
-        _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateRotationX(-(float)_polarAngle));
-        _cameraMatrix = Matrix4x4.Multiply(_cameraMatrix, Matrix4x4.CreateTranslation(0, 0, (float)_distance));
-
+        cameraMatrix
+            = Matrix4x4.CreateTranslation(0, 0, (float)Distance)
+            * Matrix4x4.CreateRotationX(-(float)PolarAngle)
+            * Matrix4x4.CreateRotationY(-(float)AzimuthAngle)
+            * Matrix4x4.CreateTranslation(Target);
         // View matrix is inverse of camera matrix
-        Matrix4x4.Invert(_cameraMatrix, out _viewMatrix);
+        Matrix4x4.Invert(cameraMatrix, out viewMatrix);
+        position = new Vector3(cameraMatrix.M41, cameraMatrix.M42, cameraMatrix.M43);
         updateCamera = false;
     }
 
@@ -274,13 +283,14 @@ public class OrbitCamera
     /// </summary>
     public void Reset()
     {
-        _polarAngle = 0;
-        _azimuthAngle = 0;
-        _distance = 10.0;
-        _target = Vector3.Zero;
-        updateCamera = true;
+        PolarAngle = 0;
+        AzimuthAngle = 0;
+        Distance = 10.0;
+        Target = Vector3.Zero;
     }
+    #endregion
 
+    #region Selection Ray
     /// <summary>
     /// Creates a ray from the camera through a screen position for picking/selection.
     /// </summary>
@@ -291,8 +301,6 @@ public class OrbitCamera
     /// <returns>Ray with origin at camera position and direction through the screen point</returns>
     public Ray CreateRayFromScreenPoint(double screenX, double screenY, double screenWidth, double screenHeight)
     {
-        UpdateMatrices();
-
         // Convert screen coordinates to normalized device coordinates (NDC)
         // NDC: X: -1 (left) to +1 (right), Y: -1 (bottom) to +1 (top)
         double ndcX = (2.0 * screenX / screenWidth) - 1.0;
@@ -303,16 +311,13 @@ public class OrbitCamera
         Vector4 farPointNDC = new Vector4((float)ndcX, (float)ndcY, 1.0f, 1.0f);  // Far plane (Z = +1 in NDC)
 
         // Get the view-projection matrix
-        Matrix4x4 viewMatrix = ViewMatrix;
         Matrix4x4 projectionMatrix = CreateProjectionMatrix(screenWidth, screenHeight);
-        Matrix4x4 viewProjectionMatrix = Matrix4x4.Multiply(viewMatrix, projectionMatrix);
+        Matrix4x4 viewProjectionMatrix = Matrix4x4.Multiply(ViewMatrix, projectionMatrix);
 
         // Calculate inverse view-projection matrix
         if (!Matrix4x4.Invert(viewProjectionMatrix, out Matrix4x4 inverseViewProjection))
-        {
             // Fallback: use just inverse view matrix if projection inversion fails
-            Matrix4x4.Invert(viewMatrix, out inverseViewProjection);
-        }
+            inverseViewProjection = CameraMatrix;
 
         // Unproject the points from NDC back to world space
         Vector4 nearPointWorld = Vector4.Transform(nearPointNDC, inverseViewProjection);
@@ -346,4 +351,5 @@ public class OrbitCamera
             return Matrix4x4.CreatePerspectiveFieldOfView((float)Fov, aspectRatio, (float)ZNear, (float)ZFar);
         }
     }
+    #endregion
 }

@@ -30,7 +30,7 @@
 	/// Camera instance for controlling the 3D view.
 	/// </summary>
 	[Parameter]
-	public OrbitCamera? Camera { get; set; }
+	public OrbitCamera? Camera { get; set; } = new OrbitCamera(Vector3.Zero);
 
 	/// <summary>
 	/// Event raised when a picking ray is created (e.g., on double-click).
@@ -43,7 +43,6 @@
 	private DotNetObjectReference<WebGPUCanvas>? _dotNetRef;
 	private bool _ready;
 	private string? _error;
-	private OrbitCamera _camera = new();
 	private bool _isDragging;
 	private bool _isPanning;
 	private double _lastPointerX;
@@ -62,11 +61,7 @@
 
 	protected override void OnParametersSet()
 	{
-		// Use provided camera or create default
-		if (Camera != null)
-		{
-			_camera = Camera;
-		}
+		base.OnParametersSet();
 	}
 
 	protected override void OnInitialized()
@@ -75,6 +70,7 @@
 		_keyboardMoveTimer = new System.Threading.Timer(_ => ProcessKeyboardMovement(), null, 0, 16);
 	}
 
+	#region Public Facing Methods
 	/// <summary>
 	/// Adds a mesh to the WebGPU scene for rendering.
 	/// </summary>
@@ -167,7 +163,8 @@
 		if (_module is null) return;
 		await _module.InvokeVoidAsync("clearAllTextBillboards");
 	}
-
+	#endregion
+	#region Tasks and Events
 	private void OnPointerDown(PointerEventArgs e)
 	{
 		var currentTime = DateTime.Now;
@@ -201,21 +198,13 @@
 			_lastPointerX = e.ClientX;
 			_lastPointerY = e.ClientY;
 		}
-		else if (e.Button == 1) // Middle mouse button - pan
+		else if (e.Button == 2) // Middle mouse button - pan
 		{
 			_isPanning = true;
 			_isDragging = false;
 			_lastPointerX = e.ClientX;
 			_lastPointerY = e.ClientY;
 		}
-	}
-
-	public static IEnumerable<float> ColorToJavaScript(Color c)
-	{
-		yield return c.R / 255f;
-		yield return c.G / 255f;
-		yield return c.B / 255f;
-		yield return c.A / 255f;
 	}
 
 	private async Task OnDoubleClick(PointerEventArgs e)
@@ -235,7 +224,7 @@
 		var relativeY = e.ClientY - canvasRect.Top;
 
 		// Create picking ray from camera through mouse position
-		var pickingRay = _camera.CreateRayFromScreenPoint(relativeX, relativeY, canvasWidth, canvasHeight);
+		var pickingRay = Camera.CreateRayFromScreenPoint(relativeX, relativeY, canvasWidth, canvasHeight);
 
 		await AddTextBillboardAsync("myBillboard", "Hello World", pickingRay.Anchor + 5 * pickingRay.Direction, System.Drawing.Color.Blue,
 		System.Drawing.Color.White);
@@ -263,12 +252,12 @@
 			_lastPointerY = e.ClientY;
 
 			// Update camera orbit
-			_camera.Orbit(deltaX, deltaY);
+			Camera.Orbit(deltaX, deltaY);
 
 			// Send updated view matrix to JavaScript
 			if (_module != null && _ready)
 			{
-				await _module.InvokeVoidAsync("updateViewMatrix", _camera.GetViewMatrixArray());
+				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertForJavaScript());
 			}
 		}
 		else if (_isPanning)
@@ -280,12 +269,12 @@
 			_lastPointerY = e.ClientY;
 
 			// Update camera pan (Shift key check)
-			_camera.Pan(deltaX, deltaY, e.ShiftKey);
+			Camera.PanWithMouse(deltaX, deltaY, e.ShiftKey);
 
 			// Send updated view matrix to JavaScript
 			if (_module != null && _ready)
 			{
-				await _module.InvokeVoidAsync("updateViewMatrix", _camera.GetViewMatrixArray());
+				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertForJavaScript());
 			}
 		}
 	}
@@ -296,7 +285,7 @@
 		{
 			_isDragging = false;
 		}
-		else if (e.Button == 1)
+		else if (e.Button == 2)
 		{
 			_isPanning = false;
 		}
@@ -305,12 +294,12 @@
 	private async Task OnWheel(WheelEventArgs e)
 	{
 		// Update camera zoom
-		_camera.Zoom(e.DeltaY);
+		Camera.Zoom(e.DeltaY);
 
 		// Send updated view matrix to JavaScript
 		if (_module != null && _ready)
 		{
-			await _module.InvokeVoidAsync("updateViewMatrix", _camera.GetViewMatrixArray());
+			await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertForJavaScript());
 		}
 	}
 
@@ -347,12 +336,12 @@
 		// Apply movement if any key is pressed
 		if (forward != 0 || right != 0 || up != 0)
 		{
-			_camera.PanDirectional(forward, right, up, shiftPressed);
+			Camera.PanWithKeyboard(forward, right, up, shiftPressed);
 
 			// Send updated view matrix to JavaScript
 			try
 			{
-				await _module.InvokeVoidAsync("updateViewMatrix", _camera.GetViewMatrixArray());
+				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertForJavaScript());
 			}
 			catch
 			{
@@ -387,7 +376,7 @@
 		if (isInitializing)
 		{
 			// Pass initial view matrix to JavaScript
-			await _module.InvokeVoidAsync("initGPU_Canvas", _dotNetRef, _canvasRef, Options, _camera.GetViewMatrixArray());
+			await _module.InvokeVoidAsync("initGPU_Canvas", _dotNetRef, _canvasRef, Options, Camera.ConvertForJavaScript());
 		}
 		else
 		{
@@ -444,9 +433,18 @@
 	private void ResetCamera()
 	{
 		// Reset camera to default position and orientation
-		_camera.Reset();
+		Camera.Reset();
 
 		// Send updated view matrix to JavaScript
-		_module?.InvokeVoidAsync("updateViewMatrix", _camera.GetViewMatrixArray());
+		_module?.InvokeVoidAsync("updateViewMatrix", Camera.ConvertForJavaScript());
 	}
+	#endregion
+	internal static IEnumerable<float> ColorToJavaScript(Color c)
+	{
+		yield return c.R / 255f;
+		yield return c.G / 255f;
+		yield return c.B / 255f;
+		yield return c.A / 255f;
+	}
+
 }
