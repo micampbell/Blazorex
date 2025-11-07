@@ -292,13 +292,15 @@ export class WebGpu_Canvas {
 
         // Draw all dynamic lines
         for (const line of this.lines) {
-            if (line.pipeline && line.vertexBuffer && line.indexBuffer) {
+            if (line.pipeline && line.posBuffer && line.indexBuffer) {
                 pass.setPipeline(line.pipeline);
                 pass.setBindGroup(0, this.frameBindGroup);
 
-                pass.setVertexBuffer(0, line.vertexBuffer);
+                pass.setVertexBuffer(0, line.posBuffer);
                 pass.setVertexBuffer(1, line.colorBuffer);
                 pass.setVertexBuffer(2, line.thicknessBuffer);
+                pass.setVertexBuffer(3, line.uvBuffer);
+                pass.setVertexBuffer(4, line.endPosBuffer);
 
                 pass.setIndexBuffer(line.indexBuffer, 'uint16');
                 pass.drawIndexed(line.indexCount);
@@ -343,84 +345,71 @@ export class WebGpu_Canvas {
             return;
         }
 
-        // Generate quad geometry for each line segment
-        // Each segment becomes a quad (4 vertices, 2 triangles, 6 indices)
-        const quadVertices = [];
+        // Generate quad geometry for each line segment with billboard data
+        const quadPositions = [];
         const quadColors = [];
         const quadThickness = [];
+        const quadUVs = [];
+        const quadEndPositions = [];
         const indices = [];
 
         for (let i = 0; i < numSegments; i++) {
-            // Get segment endpoints
             const v0 = [vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]];
             const v1 = [vertices[(i + 1) * 3], vertices[(i + 1) * 3 + 1], vertices[(i + 1) * 3 + 2]];
-
-            // Get segment properties
             const t = thickness[i] || 0.1;
             const colorIdx = i * 4;
             const color = colors && colorIdx + 3 < colors.length
                 ? [colors[colorIdx], colors[colorIdx + 1], colors[colorIdx + 2], colors[colorIdx + 3]]
                 : [1, 1, 1, 1];
 
-            // Calculate segment direction and perpendicular
-            const dx = v1[0] - v0[0];
-            const dy = v1[1] - v0[1];
-            const dz = v1[2] - v0[2];
-            const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-            if (len < 0.0001) continue; // Skip degenerate segments
-
-            // Compute perpendicular vector (assume lines in XY plane for simplicity)
-            const perpX = -dy / len;
-            const perpY = dx / len;
-            const perpZ = 0;
-            const halfThickness = t / 2;
-
-            // Create 4 vertices for this segment's quad
-            const baseIdx = quadVertices.length / 3;
+            const baseIdx = quadPositions.length / 3;
 
             // Vertex 0: start, left
-            quadVertices.push(v0[0] + perpX * halfThickness, v0[1] + perpY * halfThickness, v0[2] + perpZ * halfThickness);
+            quadPositions.push(...v0);
             quadColors.push(...color);
             quadThickness.push(t);
+            quadUVs.push(0, -0.5);
+            quadEndPositions.push(...v1);
 
             // Vertex 1: start, right
-            quadVertices.push(v0[0] - perpX * halfThickness, v0[1] - perpY * halfThickness, v0[2] - perpZ * halfThickness);
+            quadPositions.push(...v0);
             quadColors.push(...color);
             quadThickness.push(t);
+            quadUVs.push(0, 0.5);
+            quadEndPositions.push(...v1);
 
             // Vertex 2: end, left
-            quadVertices.push(v1[0] + perpX * halfThickness, v1[1] + perpY * halfThickness, v1[2] + perpZ * halfThickness);
+            quadPositions.push(...v0);
             quadColors.push(...color);
             quadThickness.push(t);
+            quadUVs.push(1, -0.5);
+            quadEndPositions.push(...v1);
 
             // Vertex 3: end, right
-            quadVertices.push(v1[0] - perpX * halfThickness, v1[1] - perpY * halfThickness, v1[2] - perpZ * halfThickness);
+            quadPositions.push(...v0);
             quadColors.push(...color);
             quadThickness.push(t);
+            quadUVs.push(1, 0.5);
+            quadEndPositions.push(...v1);
 
-            // Two triangles for this quad
-            indices.push(baseIdx, baseIdx + 1, baseIdx + 2);
-            indices.push(baseIdx + 1, baseIdx + 3, baseIdx + 2);
+            indices.push(baseIdx, baseIdx + 1, baseIdx + 2, baseIdx + 1, baseIdx + 3, baseIdx + 2);
         }
 
-        if (quadVertices.length === 0) {
+        if (quadPositions.length === 0) {
             console.error(`[addLines] "${id}" has no valid segments`);
             return;
         }
 
-        console.log(`[addLines] Generated ${quadVertices.length / 3} quad vertices, ${indices.length / 3} triangles`);
+        console.log(`[addLines] Generated ${quadPositions.length / 3} quad vertices, ${indices.length / 3} triangles`);
 
-        // Create vertex buffer (positions)
-        const vertexBuffer = this.device.createBuffer({
-            size: quadVertices.length * Float32Array.BYTES_PER_ELEMENT,
+        const posBuffer = this.device.createBuffer({
+            size: quadPositions.length * Float32Array.BYTES_PER_ELEMENT,
             usage: GPUBufferUsage.VERTEX,
             mappedAtCreation: true
         });
-        new Float32Array(vertexBuffer.getMappedRange()).set(quadVertices);
-        vertexBuffer.unmap();
+        new Float32Array(posBuffer.getMappedRange()).set(quadPositions);
+        posBuffer.unmap();
 
-        // Create color buffer
         const colorBuffer = this.device.createBuffer({
             size: quadColors.length * Float32Array.BYTES_PER_ELEMENT,
             usage: GPUBufferUsage.VERTEX,
@@ -429,7 +418,6 @@ export class WebGpu_Canvas {
         new Float32Array(colorBuffer.getMappedRange()).set(quadColors);
         colorBuffer.unmap();
 
-        // Create thickness buffer
         const thicknessBuffer = this.device.createBuffer({
             size: quadThickness.length * Float32Array.BYTES_PER_ELEMENT,
             usage: GPUBufferUsage.VERTEX,
@@ -438,7 +426,22 @@ export class WebGpu_Canvas {
         new Float32Array(thicknessBuffer.getMappedRange()).set(quadThickness);
         thicknessBuffer.unmap();
 
-        // Create index buffer
+        const uvBuffer = this.device.createBuffer({
+            size: quadUVs.length * Float32Array.BYTES_PER_ELEMENT,
+            usage: GPUBufferUsage.VERTEX,
+            mappedAtCreation: true
+        });
+        new Float32Array(uvBuffer.getMappedRange()).set(quadUVs);
+        uvBuffer.unmap();
+
+        const endPosBuffer = this.device.createBuffer({
+            size: quadEndPositions.length * Float32Array.BYTES_PER_ELEMENT,
+            usage: GPUBufferUsage.VERTEX,
+            mappedAtCreation: true
+        });
+        new Float32Array(endPosBuffer.getMappedRange()).set(quadEndPositions);
+        endPosBuffer.unmap();
+
         const indexBuffer = this.device.createBuffer({
             size: indices.length * Uint16Array.BYTES_PER_ELEMENT,
             usage: GPUBufferUsage.INDEX,
@@ -447,29 +450,19 @@ export class WebGpu_Canvas {
         new Uint16Array(indexBuffer.getMappedRange()).set(indices);
         indexBuffer.unmap();
 
-        // Create shader module for lines
         const shaderModule = this.device.createShaderModule({
             label: `Line ${id} Shader`,
-            code: LINE_SHADER
+            code: BILLBOARD_LINE_SHADER
         });
 
-        // Define vertex buffer layouts for lines
         const vertexBufferLayout = [
-            {
-                arrayStride: 12, // 3 floats (x, y, z)
-                attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }]
-            },
-            {
-                arrayStride: 16, // 4 floats (r, g, b, a)
-                attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x4' }]
-            },
-            {
-                arrayStride: 4, // 1 float (thickness)
-                attributes: [{ shaderLocation: 2, offset: 0, format: 'float32' }]
-            }
+            { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] }, // pos
+            { arrayStride: 16, attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x4' }] }, // color
+            { arrayStride: 4, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32' }] },   // thickness
+            { arrayStride: 8, attributes: [{ shaderLocation: 3, offset: 0, format: 'float32x2' }] },  // uv
+            { arrayStride: 12, attributes: [{ shaderLocation: 4, offset: 0, format: 'float32x3' }] }  // endPos
         ];
 
-        // Create pipeline for lines
         const pipelineLayout = this.device.createPipelineLayout({
             bindGroupLayouts: [this.frameBindGroupLayout]
         });
@@ -488,16 +481,8 @@ export class WebGpu_Canvas {
                 targets: [{
                     format: `${this.colorFormat}-srgb`,
                     blend: {
-                        color: {
-                            srcFactor: 'src-alpha',
-                            dstFactor: 'one-minus-src-alpha',
-                            operation: 'add'
-                        },
-                        alpha: {
-                            srcFactor: 'one',
-                            dstFactor: 'one-minus-src-alpha',
-                            operation: 'add'
-                        }
+                        color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
                     }
                 }]
             },
@@ -509,7 +494,7 @@ export class WebGpu_Canvas {
             multisample: { count: this.sampleCount ?? 1 },
             primitive: {
                 topology: 'triangle-list',
-                cullMode: 'none' // Don't cull lines
+                cullMode: 'none'
             }
         }).then((pipeline) => {
             console.log(`[addLines] Pipeline created successfully for "${id}"`);
@@ -524,12 +509,13 @@ export class WebGpu_Canvas {
             console.error(`[addLines] Pipeline creation FAILED for "${id}":`, error);
         });
 
-        // Store line
         this.lines.push({
             id,
-            vertexBuffer,
+            posBuffer,
             colorBuffer,
             thicknessBuffer,
+            uvBuffer,
+            endPosBuffer,
             indexBuffer,
             indexCount: indices.length,
             pipeline: null
@@ -559,9 +545,11 @@ export class WebGpu_Canvas {
 
             // Create a canvas to render the text
             const canvas = document.createElement('canvas');
-            canvas.width = 256;
-            canvas.height = 128;
-            const ctx = canvas.getContext('2d', { willReadFrequently: false });
+            const ctx = canvas.getContext('2d');
+            ctx.font = 'bold 24px sans-serif';
+            const textMetrics = ctx.measureText(text);
+            canvas.width = Math.ceil(textMetrics.width) + 20; // Add some padding
+            canvas.height = 30; // Fixed height for simplicity
 
             // Background
             ctx.fillStyle = `rgba(${Math.floor(backgroundColor[0] * 255)}, ${Math.floor(backgroundColor[1] * 255)}, ${Math.floor(backgroundColor[2] * 255)}, ${backgroundColor[3]})`;
@@ -576,19 +564,19 @@ export class WebGpu_Canvas {
 
             // Create ImageBitmap for reliable texture copying
             const bitmap = await createImageBitmap(canvas);
-            
+
             const texture = this.device.createTexture({
                 size: [canvas.width, canvas.height],
                 format: 'rgba8unorm',
                 usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
             });
-            
+
             this.device.queue.copyExternalImageToTexture(
                 { source: bitmap, flipY: true },
                 { texture, premultipliedAlpha: false },
                 [canvas.width, canvas.height]
             );
-            
+
             bitmap.close();
 
             console.log(`  - Texture created successfully`);
@@ -896,9 +884,11 @@ export class WebGpu_Canvas {
         const index = this.lines.findIndex(l => l.id === lineId);
         if (index >= 0) {
             const line = this.lines[index];
-            if (line.vertexBuffer) line.vertexBuffer.destroy();
+            if (line.posBuffer) line.posBuffer.destroy();
             if (line.colorBuffer) line.colorBuffer.destroy();
             if (line.thicknessBuffer) line.thicknessBuffer.destroy();
+            if (line.uvBuffer) line.uvBuffer.destroy();
+            if (line.endPosBuffer) line.endPosBuffer.destroy();
             if (line.indexBuffer) line.indexBuffer.destroy();
             this.lines.splice(index, 1);
         }
@@ -906,9 +896,11 @@ export class WebGpu_Canvas {
 
     clearAllLines() {
         for (const line of this.lines) {
-            if (line.vertexBuffer) line.vertexBuffer.destroy();
+            if (line.posBuffer) line.posBuffer.destroy();
             if (line.colorBuffer) line.colorBuffer.destroy();
             if (line.thicknessBuffer) line.thicknessBuffer.destroy();
+            if (line.uvBuffer) line.uvBuffer.destroy();
+            if (line.endPosBuffer) line.endPosBuffer.destroy();
             if (line.indexBuffer) line.indexBuffer.destroy();
         }
         this.lines = [];
@@ -1080,25 +1072,47 @@ const MESH_SHADER_TRIANGLE_COLOR = `
 `;
 
 // WGSL shader for rendering lines/paths with variable thickness and color
-const LINE_SHADER = `
+const BILLBOARD_LINE_SHADER = `
   struct Camera { projection: mat4x4f, view: mat4x4f }
   @group(0) @binding(0) var<uniform> camera: Camera;
 
   struct VertexIn {
     @location(0) pos: vec3f,
     @location(1) color: vec4f,
-    @location(2) thickness: f32
+    @location(2) thickness: f32,
+    @location(3) uv: vec2f,
+    @location(4) endPos: vec3f
   }
 
-struct VertexOut {
+  struct VertexOut {
     @builtin(position) clipPos: vec4f,
     @location(0) color: vec4f
   }
 
   @vertex fn vertexMain(in: VertexIn) -> VertexOut {
     var out: VertexOut;
-    // Transform to clip space
-    out.clipPos = camera.projection * camera.view * vec4f(in.pos, 1.0);
+    
+    // Transform start and end points of the segment to view space
+    let viewStart = camera.view * vec4f(in.pos, 1.0);
+    let viewEnd = camera.view * vec4f(in.endPos, 1.0);
+
+    // Determine the current vertex position along the line in view space
+    let currentPos = mix(viewStart, viewEnd, vec4f(in.uv.x, in.uv.x, in.uv.x, in.uv.x));
+
+    // Get the 2D direction of the line on the screen (in view space)
+    let viewDir = normalize(viewEnd.xy - viewStart.xy);
+    
+    // Calculate the 2D perpendicular direction
+    let perp = vec2f(-viewDir.y, viewDir.x);
+    
+    // Calculate the offset in view space
+    let offset = perp * in.thickness * in.uv.y;
+    
+    // Apply the 2D offset to the vertex's xy position in view space
+    let finalPos = vec4f(currentPos.xy + offset, currentPos.z, currentPos.w);
+    
+    // Project the final view-space position to clip space
+    out.clipPos = camera.projection * finalPos;
     out.color = in.color;
     return out;
   }
@@ -1132,7 +1146,11 @@ const BILLBOARD_SHADER = `
   }
 
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
-    return textureSample(texture0, sampler0, in.uv);
+    let color = textureSample(texture0, sampler0, in.uv);
+    if (color.a < 0.1) {
+        discard;
+    }
+    return color;
   }
 `;
 

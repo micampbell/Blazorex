@@ -33,7 +33,7 @@ public record LineData : CStoWebGPUDataObject
             new Vector3(0.5f*(minX+maxX), 0.5f*(minY+maxY), 0.5f*(minZ+maxZ)),  // 3
 
             // back to start
-            new Vector3(minX, minY, minZ),  // 0
+            new Vector3(maxX, minY, minZ),  // 1
         };
         var thicks = new double[]
         {
