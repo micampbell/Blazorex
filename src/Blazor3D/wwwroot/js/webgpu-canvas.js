@@ -354,9 +354,10 @@ export class WebGpu_Canvas {
         const indices = [];
 
         for (let i = 0; i < numSegments; i++) {
+            const t = thickness[i];
+            if (t <= 0) continue; // Skip zero-thickness segments
             const v0 = [vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]];
             const v1 = [vertices[(i + 1) * 3], vertices[(i + 1) * 3 + 1], vertices[(i + 1) * 3 + 2]];
-            const t = thickness[i] || 0.1;
             const colorIdx = i * 4;
             const color = colors && colorIdx + 3 < colors.length
                 ? [colors[colorIdx], colors[colorIdx + 1], colors[colorIdx + 2], colors[colorIdx + 3]]

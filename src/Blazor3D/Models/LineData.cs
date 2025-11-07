@@ -37,7 +37,7 @@ public record LineData : CStoWebGPUDataObject
         };
         var thicks = new double[]
         {
-            0.05, 0.1, 0.5, 0.1,0.5
+            0.05, 0.1, 0.05, 0.1,0.05
         };
 
         // 12 colors (one per triangle) - matches indices.Length / 3
