@@ -9,7 +9,7 @@ public enum ProjectionType
 {
     /// <summary>Perspective projection with vanishing points (realistic, default for games/visualization).</summary>
     Perspective,
-    
+
     /// <summary>Orthographic projection with parallel lines (technical drawings, CAD, engineering).</summary>
     Orthographic
 }
@@ -23,9 +23,9 @@ public record WebGpuGridOptions
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
     public static readonly WebGpuGridOptions Default = new()
     {
-        ClearColor = Color.FromArgb(100,100,100,255),
-        LineColor = Color.FromArgb(255,255,255),
-        BaseColor = Color.FromArgb(10,50,100,50),
+        ClearColor = Color.FromArgb(100, 100, 100, 255),
+        LineColor = Color.FromArgb(255, 255, 255),
+        BaseColor = Color.FromArgb(10, 50, 100, 50),
         LineWidthX = 0.2,
         LineWidthY = 0.2,
         SampleCount = 4,
@@ -89,8 +89,8 @@ public record WebGpuGridOptions
         fov = Fov,
         orthoSize = OrthoSize,
         zNear = ZNear,
-            zFar = ZFar
-        };
+        zFar = ZFar
+    };
 }
 
 /// <summary>
