@@ -225,7 +225,11 @@ export class WebGpu_Canvas {
                     }
                 }]
             },
-            depthStencil: { format: this.depthFormat, depthWriteEnabled: false, depthCompare: 'less-equal' },
+            depthStencil: {
+                format: this.depthFormat,
+                depthWriteEnabled: true, // <-- FIX: Enable depth writing for the grid
+                depthCompare: 'less-equal'
+            },
             multisample: { count: this.sampleCount ?? 1 }
         }).then((pipeline) => { this.pipeline = pipeline; });
 
@@ -594,8 +598,8 @@ export class WebGpu_Canvas {
             },
             depthStencil: {
                 format: this.depthFormat,
-                depthWriteEnabled: false,
-                depthCompare: 'less-equal'
+                depthWriteEnabled: true,
+                depthCompare: 'less-equal' // <-- FIX: Enable depth testing
             },
             multisample: { count: this.sampleCount ?? 1 },
             primitive: {
@@ -775,12 +779,18 @@ export class WebGpu_Canvas {
                 fragment: {
                     module: shaderModule,
                     entryPoint: 'fragmentMain',
-                    targets: [{ format: `${this.colorFormat}-srgb` }]
+                    targets: [{
+                        format: `${this.colorFormat}-srgb`,
+                        blend: { // <-- FIX: Add proper alpha blending
+                            color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+                        }
+                    }]
                 },
                 depthStencil: {
                     format: this.depthFormat,
                     depthWriteEnabled: true,
-                    depthCompare: 'less-equal'
+                    depthCompare: 'less-equal' // <-- FIX: Enable depth testing
                 },
                 multisample: { count: this.sampleCount ?? 1 }
             }).then((pipeline) => {
