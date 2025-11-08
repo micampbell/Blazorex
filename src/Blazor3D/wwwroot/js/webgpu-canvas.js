@@ -983,7 +983,7 @@ const GRID_SHADER = `
   struct GridArgs { lineColor: vec4f, baseColor: vec4f, lineWidth: vec2f }
   @group(1) @binding(0) var<uniform> gridArgs: GridArgs;
   @vertex fn vertexMain(in: VertexIn) -> VertexOut { var out: VertexOut; out.pos = camera.projection * camera.view * in.pos; out.uv = in.uv; return out; }
-  @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f { var grid = PristineGrid(in.uv, gridArgs.lineWidth); return mix(gridArgs.baseColor, gridArgs.lineColor, grid * gridArgs.lineColor.a); }
+  @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f { var grid = PristineGrid(in.uv, gridArgs.lineWidth); return mix(gridArgs.baseColor, gridArgs.lineColor, grid); }
 `;
 
 // WGSL shader for solid-colored meshes (cubes, etc.)
