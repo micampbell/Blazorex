@@ -1,4 +1,4 @@
-// WebGPU canvas module for Blazor WebAssembly
+ï»¿// WebGPU canvas module for Blazor WebAssembly
 //
 // Overview
 //  - This file contains a small WebGPU engine (WebGpu_Canvas) and exported
@@ -9,18 +9,18 @@
 //
 // Called from C# (WebGPUCanvas.razor)
 //  - initGPU_Canvas(dotnetRef, canvasEl, options, viewMatrix)
-//  • dotnetRef: DotNetObjectReference passed from C# for callbacks
-//      • canvasEl: ElementReference to the Blazor-rendered canvas
-//      • options: { clearColor, lineColor, baseColor, lineWidthX, lineWidthY, sampleCount, fov, zNear, zFar }
-//      • viewMatrix: Initial view matrix as float array from C#
-//      • Initializes WebGPU, builds pipeline/buffers, and starts the render loop
+//  â€¢ dotnetRef: DotNetObjectReference passed from C# for callbacks
+//      â€¢ canvasEl: ElementReference to the Blazor-rendered canvas
+//      â€¢ options: { clearColor, lineColor, baseColor, lineWidthX, lineWidthY, sampleCount, fov, zNear, zFar }
+//      â€¢ viewMatrix: Initial view matrix as float array from C#
+//      â€¢ Initializes WebGPU, builds pipeline/buffers, and starts the render loop
 //  - updateGridOptions(options)
-//      • Hot-updates grid colors/line widths and camera config.
-//      • Updates GPU uniform buffer immediately when possible.
+//      â€¢ Hot-updates grid colors/line widths and camera config.
+//      â€¢ Updates GPU uniform buffer immediately when possible.
 //  - updateViewMatrix(matrixArray)
-//      • Updates the view matrix from C# on camera changes.
+//      â€¢ Updates the view matrix from C# on camera changes.
 //  - disposeWebGPU_Canvas()
-//      • Stops periodic callbacks and clears references; called by IAsyncDisposable.
+//      â€¢ Stops periodic callbacks and clears references; called by IAsyncDisposable.
 //
 // Notes for maintainers
 //- The Blazor component owns UI and parameters; this module focuses on rendering.
@@ -357,7 +357,12 @@ export class WebGpu_Canvas {
             return;
         }
 
-        // Generate quad geometry for each line segment with billboard data
+        // Billboard stadium geometry per segment
+        // For each segment we create:
+        //  - Body quad: 2 triangles
+        //  - Start cap (half-disk): 6 triangles fan (center + 7 perimeter points)
+        //  - End cap (half-disk): 6 triangles fan
+        // Total triangles per segment: 14
         const quadPositions = [];
         const quadColors = [];
         const quadThickness = [];
@@ -366,13 +371,15 @@ export class WebGpu_Canvas {
         const quadFades = [];
         const indices = [];
 
+        const HALF_RAD = 0.5;        // radius in uv space (since uv.y is in -0.5..0.5)
+        const ANGLE_STEP = Math.PI / 6; // 30 degrees
+
         for (let i = 0; i < numSegments; i++) {
             const t = thickness[i];
             const fRaw = fades && i < fades.length ? fades[i] : 0;
             const f = Math.max(0, Math.min(1, Number.isFinite(fRaw) ? fRaw : 0));
-            // how to use fade value to effect the shader so that a gradient is setup out from the
-            // centerline of the line to the side of the road?
             if (t <= 0) continue; // Skip zero-thickness segments
+
             const v0 = [vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]];
             const v1 = [vertices[(i + 1) * 3], vertices[(i + 1) * 3 + 1], vertices[(i + 1) * 3 + 2]];
             const colorIdx = i * 4;
@@ -380,9 +387,10 @@ export class WebGpu_Canvas {
                 ? [colors[colorIdx], colors[colorIdx + 1], colors[colorIdx + 2], colors[colorIdx + 3]]
                 : [1, 1, 1, 1];
 
-            const baseIdx = quadPositions.length / 3;
+            // Body quad (same as before)
+            const baseIdxBody = quadPositions.length / 3;
 
-            // Vertex 0: start, left
+            // start-left
             quadPositions.push(...v0);
             quadColors.push(...color);
             quadThickness.push(t);
@@ -390,7 +398,7 @@ export class WebGpu_Canvas {
             quadEndPositions.push(...v1);
             quadFades.push(f);
 
-            // Vertex 1: start, right
+            // start-right
             quadPositions.push(...v0);
             quadColors.push(...color);
             quadThickness.push(t);
@@ -398,7 +406,7 @@ export class WebGpu_Canvas {
             quadEndPositions.push(...v1);
             quadFades.push(f);
 
-            // Vertex 2: end, left
+            // end-left
             quadPositions.push(...v0);
             quadColors.push(...color);
             quadThickness.push(t);
@@ -406,7 +414,7 @@ export class WebGpu_Canvas {
             quadEndPositions.push(...v1);
             quadFades.push(f);
 
-            // Vertex 3: end, right
+            // end-right
             quadPositions.push(...v0);
             quadColors.push(...color);
             quadThickness.push(t);
@@ -414,7 +422,74 @@ export class WebGpu_Canvas {
             quadEndPositions.push(...v1);
             quadFades.push(f);
 
-            indices.push(baseIdx, baseIdx + 1, baseIdx + 2, baseIdx + 1, baseIdx + 3, baseIdx + 2);
+            // Body indices (2 triangles)
+            indices.push(baseIdxBody, baseIdxBody + 1, baseIdxBody + 2, baseIdxBody + 1, baseIdxBody + 3, baseIdxBody + 2);
+
+            // Start cap (semicircle behind start point)
+            // Angles from Ï€/2 to 3Ï€/2 (backward half relative to tangent direction)
+            const startCenterIdx = quadPositions.length / 3;
+            // Center vertex (uv at center of circle)
+            quadPositions.push(...v0);
+            quadColors.push(...color);
+            quadThickness.push(t);
+            quadUVs.push(0, 0); // center
+            quadEndPositions.push(...v1); // still need endPos for shader interpolation
+            quadFades.push(f);
+
+            const startPerimBase = quadPositions.length / 3;
+            const startAngles = [];
+            for (let a = Math.PI / 2; a <= 3 * Math.PI / 2 + 1e-6; a += ANGLE_STEP)
+                startAngles.push(a);
+            for (let ai = 0; ai < startAngles.length; ai++) {
+                const ang = startAngles[ai];
+                const u = Math.cos(ang) * HALF_RAD; // negative or zero
+                const v = Math.sin(ang) * HALF_RAD; // -0.5..0.5
+                quadPositions.push(...v0);
+                quadColors.push(...color);
+                quadThickness.push(t);
+                quadUVs.push(u, v); // uv.x extrapolates beyond start when negative
+                quadEndPositions.push(...v1);
+                quadFades.push(f);
+            }
+            // Fan indices (6 triangles)
+            for (let ai = 0; ai < startAngles.length - 1; ai++) {
+                const i0 = startCenterIdx;
+                const i1 = startPerimBase + ai;
+                const i2 = startPerimBase + ai + 1;
+                indices.push(i0, i1, i2);
+            }
+
+            // End cap (semicircle forward beyond end point)
+            // Angles from -Ï€/2 to Ï€/2 (forward half)
+            const endCenterIdx = quadPositions.length / 3;
+            quadPositions.push(...v0);
+            quadColors.push(...color);
+            quadThickness.push(t);
+            quadUVs.push(1, 0); // center at segment end
+            quadEndPositions.push(...v1);
+            quadFades.push(f);
+
+            const endPerimBase = quadPositions.length / 3;
+            const endAngles = [];
+            for (let a = -Math.PI / 2; a <= Math.PI / 2 + 1e-6; a += ANGLE_STEP) endAngles.push(a);
+            for (let ai = 0; ai < endAngles.length; ai++) {
+                const ang = endAngles[ai];
+                const u = 1 + Math.cos(ang) * HALF_RAD; // 1..1.5
+                const v = Math.sin(ang) * HALF_RAD;     // -0.5..0.5
+                quadPositions.push(...v0);
+                quadColors.push(...color);
+                quadThickness.push(t);
+                quadUVs.push(u, v);
+                quadEndPositions.push(...v1);
+                quadFades.push(f);
+            }
+            // Fan indices (6 triangles)
+            for (let ai = 0; ai < endAngles.length - 1; ai++) {
+                const i0 = endCenterIdx;
+                const i1 = endPerimBase + ai;
+                const i2 = endPerimBase + ai + 1;
+                indices.push(i0, i1, i2);
+            }
         }
 
         if (quadPositions.length === 0) {
@@ -422,7 +497,7 @@ export class WebGpu_Canvas {
             return;
         }
 
-        console.log(`[addLines] Generated ${quadPositions.length / 3} quad vertices, ${indices.length / 3} triangles`);
+        console.log(`[addLines] Generated ${quadPositions.length / 3} stadium vertices, ${indices.length / 3} triangles`);
 
         const posBuffer = this.device.createBuffer({
             size: quadPositions.length * Float32Array.BYTES_PER_ELEMENT,
@@ -489,7 +564,7 @@ export class WebGpu_Canvas {
             { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] }, // pos
             { arrayStride: 16, attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x4' }] }, // color
             { arrayStride: 4, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32' }] },   // thickness
-            { arrayStride: 8, attributes: [{ shaderLocation: 3, offset: 0, format: 'float32x2' }] },  // uv
+            { arrayStride: 8, attributes: [{ shaderLocation: 3, offset: 0, format: 'float32x2' }] },  // uv (uv.x can extend beyond [0,1] for caps)
             { arrayStride: 12, attributes: [{ shaderLocation: 4, offset: 0, format: 'float32x3' }] }, // endPos
             { arrayStride: 4, attributes: [{ shaderLocation: 5, offset: 0, format: 'float32' }] }   // fade
         ];
@@ -520,7 +595,7 @@ export class WebGpu_Canvas {
             depthStencil: {
                 format: this.depthFormat,
                 depthWriteEnabled: false,
-                depthCompare: 'always'
+                depthCompare: 'less-equal'
             },
             multisample: { count: this.sampleCount ?? 1 },
             primitive: {
@@ -763,9 +838,9 @@ export class WebGpu_Canvas {
         // vertexBuffer.getMappedRange(): Since the buffer was created with ArrayBuffer(raw memory view)
         // that the CPU can write to. It's like a "window" into the GPU buffer's memory. Then,  the
         // new Float32Array(vertexBuffer.getMappedRange()) creates a Float32Array view over that raw memory.
-        // It doesn't copy data yet—it just provides a typed interface (floats) to the buffer's bytes.
+        // It doesn't copy data yetâ€”it just provides a typed interface (floats) to the buffer's bytes.
         // Finally, the ".set(vertexArray)" copies the contents of vertexArray into the buffer's memory. 
-        // It's efficient—no intermediate allocations, just a direct memory copy.
+        // It's efficientâ€”no intermediate allocations, just a direct memory copy.
         new Float32Array(vertexBuffer.getMappedRange()).set(vertices);
         vertexBuffer.unmap(); // This method releases the CPU's access to the GPU buffer's memory.
         // When you create a buffer with mappedAtCreation: true, the buffer is initially mapped (CPU
@@ -1134,36 +1209,40 @@ const BILLBOARD_LINE_SHADER = `
     let viewStart = camera.view * vec4f(in.pos, 1.0);
     let viewEnd = camera.view * vec4f(in.endPos, 1.0);
 
-    // Determine the current vertex position along the line in view space
-    let currentPos = mix(viewStart, viewEnd, vec4f(in.uv.x, in.uv.x, in.uv.x, in.uv.x));
+    // Direction in view space
+    let rawDir = viewEnd.xy - viewStart.xy;
+    let dist = max(length(rawDir), 1e-6);
+    let viewDir = rawDir / dist;          // tangent (normalized)
+    let perp = vec2f(-viewDir.y, viewDir.x); // perpendicular
 
-    // Get the 2D direction of the line on the screen (in view space)
-    let viewDir = normalize(viewEnd.xy - viewStart.xy);
-    
-    // Calculate the 2D perpendicular direction
-    let perp = vec2f(-viewDir.y, viewDir.x);
-    
-    // Calculate the offset in view space
-    let offset = perp * in.thickness * in.uv.y;
-    
-    // Apply the 2D offset to the vertex's xy position in view space
-    let finalPos = vec4f(currentPos.xy + offset, currentPos.z, currentPos.w);
-    
-    // Project the final view-space position to clip space
+    // Axial parameter (clamped so caps don't extend segment length)
+    let axial = clamp(in.uv.x, 0.0, 1.0);
+    // Cap extension amount (negative for start cap, positive for end cap) in [-0.5,0.5]
+    let capOffset = in.uv.x - axial;
+
+    // Interpolate along the segment
+    let interpPos = mix(viewStart, viewEnd, vec4f(axial, axial, axial, axial));
+
+    // Thickness scaling: uv.y already in -0.5..0.5 giving half-width usage
+    let offsetPerp = perp * (in.thickness * in.uv.y);
+    // Cap offset along tangent also scaled by thickness so radius == thickness/2 when |capOffset|==0.5
+    let offsetTan = viewDir * (in.thickness * capOffset);
+    let finalXY = interpPos.xy + offsetPerp + offsetTan;
+
+    let finalPos = vec4f(finalXY, interpPos.z, interpPos.w);
+
     out.clipPos = camera.projection * finalPos;
     out.color = in.color;
-    out.uvY = in.uv.y;     // -0.5..0.5 across the line width
-    out.fade = in.fade;    // 0..1 fade fraction of half-thickness
+    out.uvY = in.uv.y;
+    out.fade = in.fade;
     return out;
   }
 
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
     var alpha = in.color.a;
-    // If fade > 0, fade from centerline (uvY=0) to transparency at fade * half-thickness (0.5)
     if (in.fade > 0.0) {
       let halfWidth = 0.5;
       let dist = abs(in.uvY);
-      // t=1 at center, 0 at dist >= halfWidth*fade
       let t = clamp(1.0 - dist / (halfWidth * in.fade), 0.0, 1.0);
       alpha = alpha * t;
     }

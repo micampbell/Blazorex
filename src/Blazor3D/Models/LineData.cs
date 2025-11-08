@@ -44,7 +44,7 @@ public record LineData : CStoWebGPUDataObject
         };
         var thicks = new double[]
         {
-            0.05, 0.1, 0.05, 0.1,0.05
+            0.5, 0.31, 0.25, 0.39,0.65
         };
 
         // 12 colors (one per triangle) - matches indices.Length / 3
@@ -65,7 +65,8 @@ public record LineData : CStoWebGPUDataObject
             Vertices = vertices,
             Thicknesses = thicks,
             Colors = colors,
-            FadeFactors = [0.1, 0.4, 0.0, 0.17, 0.0],
+            //FadeFactors = [0.0, 0.0, 0.0, 0.0, 0.0],
+            FadeFactors = [0.2, 0.4, 1.0, 0.67, 0.7],
         };
     }
     internal override object CreateJavascriptData()

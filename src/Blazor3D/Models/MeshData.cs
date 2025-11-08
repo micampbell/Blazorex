@@ -65,28 +65,28 @@ public record MeshData : CStoWebGPUDataObject
         var colors = new Color[]
         {
             // Front face triangles (2 triangles)
-            Color.FromArgb(255, 0, 0),    // Triangle 0 - Bright Red
-            Color.FromArgb(200, 0, 0),    // Triangle 1 - Dark Red
+            Color.FromArgb(111,255, 0, 0),    // Triangle 0 - Bright Red
+            Color.FromArgb(111,200, 0, 0),    // Triangle 1 - Dark Red
             
             // Back face triangles (2 triangles)
-            Color.FromArgb(0, 255, 0),    // Triangle 2 - Bright Green
-            Color.FromArgb(0, 200, 0),    // Triangle 3 - Dark Green
+            Color.FromArgb(111,0, 255, 0),    // Triangle 2 - Bright Green
+            Color.FromArgb(111,0, 200, 0),    // Triangle 3 - Dark Green
             
             // Bottom face triangles (2 triangles)
-            Color.FromArgb(0, 0, 255),    // Triangle 4 - Bright Blue
-            Color.FromArgb(0, 0, 200),    // Triangle 5 - Dark Blue
+            Color.FromArgb(111,0, 0, 255),    // Triangle 4 - Bright Blue
+            Color.FromArgb(111,0, 0, 200),    // Triangle 5 - Dark Blue
             
             // Top face triangles (2 triangles)
-            Color.FromArgb(255, 255, 0),    // Triangle 6 - Bright Yellow
-            Color.FromArgb(200, 200, 0),    // Triangle 7 - Dark Yellow
+            Color.FromArgb(111,255, 255, 0),    // Triangle 6 - Bright Yellow
+            Color.FromArgb(111,200, 200, 0),    // Triangle 7 - Dark Yellow
             
             // Left face triangles (2 triangles)
-            Color.FromArgb(0, 255, 255),    // Triangle 8 - Bright Cyan
-            Color.FromArgb(0, 200, 200),    // Triangle 9 - Dark Cyan
+            Color.FromArgb(111,0, 255, 255),    // Triangle 8 - Bright Cyan
+            Color.FromArgb(111,0, 200, 200),    // Triangle 9 - Dark Cyan
             
             // Right face triangles (2 triangles)
-            Color.FromArgb(255, 0, 255),    // Triangle 10 - Bright Magenta
-            Color.FromArgb(200, 0, 200),    // Triangle 11 - Dark Magenta
+            Color.FromArgb(111,255, 0, 255),    // Triangle 10 - Bright Magenta
+            Color.FromArgb(111,200, 0, 200),    // Triangle 11 - Dark Magenta
         };
 
         return new MeshData
@@ -95,7 +95,7 @@ public record MeshData : CStoWebGPUDataObject
             Vertices = vertices,
             Indices = indices,
             Colors = colors,
-            ColorMode = MeshColoring.UniformColor
+            ColorMode = MeshColoring.PerTriangle
         };
     }
 
