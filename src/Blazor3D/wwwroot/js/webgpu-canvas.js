@@ -214,16 +214,16 @@ export class WebGpu_Canvas {
                 entryPoint: 'vertexMain',
                 buffers: [{ arrayStride: 20, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x2' }] }]
             },
-            fragment: { 
-                module, 
-                entryPoint: 'fragmentMain', 
+            fragment: {
+                module,
+                entryPoint: 'fragmentMain',
                 targets: [{
                     format: `${this.colorFormat}-srgb`,
                     blend: {
                         color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
                         alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
                     }
-                }] 
+                }]
             },
             depthStencil: { format: this.depthFormat, depthWriteEnabled: false, depthCompare: 'less-equal' },
             multisample: { count: this.sampleCount ?? 1 }
@@ -301,6 +301,7 @@ export class WebGpu_Canvas {
                 pass.setVertexBuffer(2, line.thicknessBuffer);
                 pass.setVertexBuffer(3, line.uvBuffer);
                 pass.setVertexBuffer(4, line.endPosBuffer);
+                pass.setVertexBuffer(5, line.fadeBuffer);
 
                 pass.setIndexBuffer(line.indexBuffer, 'uint16');
                 pass.drawIndexed(line.indexCount);
@@ -339,13 +340,14 @@ export class WebGpu_Canvas {
             return;
         }
 
-        const { id, vertices, thickness, colors } = lineData;
+        const { id, vertices, thickness, colors, fades } = lineData;
 
         console.log(`[addLines] Adding lines "${id}":`);
         console.log(`  - Vertices: ${vertices.length / 3} (${vertices.length} floats)`);
         console.log(`  - Line segments: ${vertices.length / 3 - 1}`);
         console.log(`  - Thickness values: ${thickness.length}`);
         console.log(`  - Colors: ${colors ? colors.length : 0}`);
+        console.log(`  - Fades: ${fades ? fades.length : 0}`);
 
         const numVertices = vertices.length / 3;
         const numSegments = numVertices - 1;
@@ -361,10 +363,15 @@ export class WebGpu_Canvas {
         const quadThickness = [];
         const quadUVs = [];
         const quadEndPositions = [];
+        const quadFades = [];
         const indices = [];
 
         for (let i = 0; i < numSegments; i++) {
             const t = thickness[i];
+            const fRaw = fades && i < fades.length ? fades[i] : 0;
+            const f = Math.max(0, Math.min(1, Number.isFinite(fRaw) ? fRaw : 0));
+            // how to use fade value to effect the shader so that a gradient is setup out from the
+            // centerline of the line to the side of the road?
             if (t <= 0) continue; // Skip zero-thickness segments
             const v0 = [vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]];
             const v1 = [vertices[(i + 1) * 3], vertices[(i + 1) * 3 + 1], vertices[(i + 1) * 3 + 2]];
@@ -381,6 +388,7 @@ export class WebGpu_Canvas {
             quadThickness.push(t);
             quadUVs.push(0, -0.5);
             quadEndPositions.push(...v1);
+            quadFades.push(f);
 
             // Vertex 1: start, right
             quadPositions.push(...v0);
@@ -388,6 +396,7 @@ export class WebGpu_Canvas {
             quadThickness.push(t);
             quadUVs.push(0, 0.5);
             quadEndPositions.push(...v1);
+            quadFades.push(f);
 
             // Vertex 2: end, left
             quadPositions.push(...v0);
@@ -395,6 +404,7 @@ export class WebGpu_Canvas {
             quadThickness.push(t);
             quadUVs.push(1, -0.5);
             quadEndPositions.push(...v1);
+            quadFades.push(f);
 
             // Vertex 3: end, right
             quadPositions.push(...v0);
@@ -402,6 +412,7 @@ export class WebGpu_Canvas {
             quadThickness.push(t);
             quadUVs.push(1, 0.5);
             quadEndPositions.push(...v1);
+            quadFades.push(f);
 
             indices.push(baseIdx, baseIdx + 1, baseIdx + 2, baseIdx + 1, baseIdx + 3, baseIdx + 2);
         }
@@ -453,6 +464,14 @@ export class WebGpu_Canvas {
         new Float32Array(endPosBuffer.getMappedRange()).set(quadEndPositions);
         endPosBuffer.unmap();
 
+        const fadeBuffer = this.device.createBuffer({
+            size: quadFades.length * Float32Array.BYTES_PER_ELEMENT,
+            usage: GPUBufferUsage.VERTEX,
+            mappedAtCreation: true
+        });
+        new Float32Array(fadeBuffer.getMappedRange()).set(quadFades);
+        fadeBuffer.unmap();
+
         const indexBuffer = this.device.createBuffer({
             size: indices.length * Uint16Array.BYTES_PER_ELEMENT,
             usage: GPUBufferUsage.INDEX,
@@ -471,7 +490,8 @@ export class WebGpu_Canvas {
             { arrayStride: 16, attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x4' }] }, // color
             { arrayStride: 4, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32' }] },   // thickness
             { arrayStride: 8, attributes: [{ shaderLocation: 3, offset: 0, format: 'float32x2' }] },  // uv
-            { arrayStride: 12, attributes: [{ shaderLocation: 4, offset: 0, format: 'float32x3' }] }  // endPos
+            { arrayStride: 12, attributes: [{ shaderLocation: 4, offset: 0, format: 'float32x3' }] }, // endPos
+            { arrayStride: 4, attributes: [{ shaderLocation: 5, offset: 0, format: 'float32' }] }   // fade
         ];
 
         const pipelineLayout = this.device.createPipelineLayout({
@@ -508,7 +528,7 @@ export class WebGpu_Canvas {
                 cullMode: 'none'
             }
         }).then((pipeline) => {
-            console.log(`[addLines] Pipeline created successfully for "${id}"`);
+            console.log(`[addLines] Pipeline created successfully for "${id}");   // `);
             const line = this.lines.find(l => l.id === id);
             if (line) {
                 line.pipeline = pipeline;
@@ -527,6 +547,7 @@ export class WebGpu_Canvas {
             thicknessBuffer,
             uvBuffer,
             endPosBuffer,
+            fadeBuffer,
             indexBuffer,
             indexCount: indices.length,
             pipeline: null
@@ -901,6 +922,7 @@ export class WebGpu_Canvas {
             if (line.thicknessBuffer) line.thicknessBuffer.destroy();
             if (line.uvBuffer) line.uvBuffer.destroy();
             if (line.endPosBuffer) line.endPosBuffer.destroy();
+            if (line.fadeBuffer) line.fadeBuffer.destroy();
             if (line.indexBuffer) line.indexBuffer.destroy();
             this.lines.splice(index, 1);
         }
@@ -913,6 +935,7 @@ export class WebGpu_Canvas {
             if (line.thicknessBuffer) line.thicknessBuffer.destroy();
             if (line.uvBuffer) line.uvBuffer.destroy();
             if (line.endPosBuffer) line.endPosBuffer.destroy();
+            if (line.fadeBuffer) line.fadeBuffer.destroy();
             if (line.indexBuffer) line.indexBuffer.destroy();
         }
         this.lines = [];
@@ -1093,12 +1116,15 @@ const BILLBOARD_LINE_SHADER = `
     @location(1) color: vec4f,
     @location(2) thickness: f32,
     @location(3) uv: vec2f,
-    @location(4) endPos: vec3f
+    @location(4) endPos: vec3f,
+    @location(5) fade: f32
   }
 
   struct VertexOut {
     @builtin(position) clipPos: vec4f,
-    @location(0) color: vec4f
+    @location(0) color: vec4f,
+    @location(1) uvY: f32,
+    @location(2) fade: f32
   }
 
   @vertex fn vertexMain(in: VertexIn) -> VertexOut {
@@ -1126,11 +1152,22 @@ const BILLBOARD_LINE_SHADER = `
     // Project the final view-space position to clip space
     out.clipPos = camera.projection * finalPos;
     out.color = in.color;
+    out.uvY = in.uv.y;     // -0.5..0.5 across the line width
+    out.fade = in.fade;    // 0..1 fade fraction of half-thickness
     return out;
   }
 
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
-    return in.color;
+    var alpha = in.color.a;
+    // If fade > 0, fade from centerline (uvY=0) to transparency at fade * half-thickness (0.5)
+    if (in.fade > 0.0) {
+      let halfWidth = 0.5;
+      let dist = abs(in.uvY);
+      // t=1 at center, 0 at dist >= halfWidth*fade
+      let t = clamp(1.0 - dist / (halfWidth * in.fade), 0.0, 1.0);
+      alpha = alpha * t;
+    }
+    return vec4f(in.color.rgb, alpha);
   }
 `;
 

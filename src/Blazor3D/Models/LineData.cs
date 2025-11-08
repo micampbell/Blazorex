@@ -12,8 +12,15 @@ public record LineData : CStoWebGPUDataObject
     /// <summary>Vertex positions (x, y, z triplets).</summary>
     public required IEnumerable<Vector3> Vertices { get; init; }
 
-    /// <summary>Triangle indices (3 indices per triangle).</summary>
     public required IEnumerable<double> Thicknesses { get; init; }
+
+    /// <summary>
+    /// A number from 0.0 to 1.0 representing the fade factor for each path.
+    /// When 0.0, the path is fully opaque and no gradient is applied. Values between 0 and 1.0,
+    /// mean that the the path fades from the centerline to transparency at this fraction of the 
+    /// half-thickness.
+    /// </summary>
+    public required IEnumerable<double> FadeFactors { get; init; }
 
     /// <summary>
     /// Creates a cube mesh with solid colors per triangle (engineering/CAD style).
@@ -58,6 +65,7 @@ public record LineData : CStoWebGPUDataObject
             Vertices = vertices,
             Thicknesses = thicks,
             Colors = colors,
+            FadeFactors = [0.1, 0.4, 0.0, 0.17, 0.0],
         };
     }
     internal override object CreateJavascriptData()
@@ -68,6 +76,7 @@ public record LineData : CStoWebGPUDataObject
             vertices = Vertices.SelectMany(v => Coordinates(v)).ToArray(),
             thickness = Thicknesses.Select(t => (float)t).ToArray(),
             colors = Colors.SelectMany(c => ColorParts(c)).ToArray(),
+            fades = FadeFactors.Select(f => (float)f).ToArray(),
         };
     }
 }
