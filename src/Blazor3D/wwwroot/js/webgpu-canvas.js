@@ -271,8 +271,12 @@ export class WebGpu_Canvas {
         const encoder = device.createCommandEncoder();
         const pass = encoder.beginRenderPass(this.defaultRenderPassDescriptor);
 
+        // Separate meshes into opaque and transparent
+        const opaqueMeshes = this.meshes.filter(m => !m.isTransparent);
+        const transparentMeshes = this.meshes.filter(m => m.isTransparent);
+
         // Draw all opaque meshes first
-        for (const mesh of this.meshes) {
+        for (const mesh of opaqueMeshes) {
             if (mesh.pipeline && mesh.vertexBuffer && mesh.indexBuffer) {
                 pass.setPipeline(mesh.pipeline);
                 pass.setBindGroup(0, this.frameBindGroup);
@@ -302,6 +306,27 @@ export class WebGpu_Canvas {
             pass.setVertexBuffer(0, this.vertexBuffer);
             pass.setIndexBuffer(this.indexBuffer, 'uint32');
             pass.drawIndexed(6);
+        }
+
+        // Draw all transparent meshes
+        for (const mesh of transparentMeshes) {
+            if (mesh.pipeline && mesh.vertexBuffer && mesh.indexBuffer) {
+                pass.setPipeline(mesh.pipeline);
+                pass.setBindGroup(0, this.frameBindGroup);
+
+                if (mesh.singleColor && mesh.bindGroup) {
+                    pass.setBindGroup(1, mesh.bindGroup);
+                }
+
+                pass.setVertexBuffer(0, mesh.vertexBuffer);
+
+                if (!mesh.singleColor && mesh.colorBuffer) {
+                    pass.setVertexBuffer(1, mesh.colorBuffer);
+                }
+
+                pass.setIndexBuffer(mesh.indexBuffer, 'uint16');
+                pass.drawIndexed(mesh.indexCount);
+            }
         }
 
         // Draw all dynamic lines (translucent, depth test disabled)
@@ -870,10 +895,13 @@ export class WebGpu_Canvas {
         let bindGroup = null;
         let bindGroupLayout = null;
         let colorBuffer = null;
+        let isTransparent = false;
+
         if (singleColor) {
             // Uniform color throughout 
             console.log(`  - Color Mode is UNIFORM`);
             shaderCode = MESH_SHADER;
+            isTransparent = colors.length >= 4 && colors[3] < 1.0;
 
             colorBuffer = this.device.createBuffer({
                 size: 4 * Float32Array.BYTES_PER_ELEMENT,
@@ -940,11 +968,17 @@ export class WebGpu_Canvas {
             fragment: {
                 module: shaderModule,
                 entryPoint: 'fragmentMain',
-                targets: [{ format: `${this.colorFormat}-srgb` }]
+                targets: [{
+                    format: `${this.colorFormat}-srgb`,
+                    blend: {
+                        color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+                    }
+                }]
             },
             depthStencil: {
                 format: this.depthFormat,
-                depthWriteEnabled: true,
+                depthWriteEnabled: !isTransparent, // Disable depth write for transparent objects
                 depthCompare: 'less-equal'
             },
             multisample: { count: this.sampleCount ?? 1 },
@@ -973,6 +1007,7 @@ export class WebGpu_Canvas {
             indexBuffer,
             bindGroup,
             singleColor,
+            isTransparent,
             indexCount: indices.length,
             pipeline: null
         });
