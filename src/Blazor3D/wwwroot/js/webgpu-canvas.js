@@ -267,7 +267,7 @@ export class WebGpu_Canvas {
         const encoder = device.createCommandEncoder();
         const pass = encoder.beginRenderPass(this.defaultRenderPassDescriptor);
 
-        // Draw all dynamic meshes
+        // Draw all opaque meshes first
         for (const mesh of this.meshes) {
             if (mesh.pipeline && mesh.vertexBuffer && mesh.indexBuffer) {
                 pass.setPipeline(mesh.pipeline);
@@ -290,7 +290,17 @@ export class WebGpu_Canvas {
             }
         }
 
-        // Draw all dynamic lines
+        // Draw the grid before translucent geometry so lines/text can appear on top
+        if (this.pipeline) {
+            pass.setPipeline(this.pipeline);
+            pass.setBindGroup(0, this.frameBindGroup);
+            pass.setBindGroup(1, this.bindGroup);
+            pass.setVertexBuffer(0, this.vertexBuffer);
+            pass.setIndexBuffer(this.indexBuffer, 'uint32');
+            pass.drawIndexed(6);
+        }
+
+        // Draw all dynamic lines (translucent, depth test disabled)
         for (const line of this.lines) {
             if (line.pipeline && line.posBuffer && line.indexBuffer) {
                 pass.setPipeline(line.pipeline);
@@ -308,7 +318,7 @@ export class WebGpu_Canvas {
             }
         }
 
-        // Draw all text billboards
+        // Draw all text billboards last
         for (const billboard of this.textBillboards) {
             if (billboard.pipeline && billboard.vertexBuffer && billboard.indexBuffer) {
                 pass.setPipeline(billboard.pipeline);
@@ -318,16 +328,6 @@ export class WebGpu_Canvas {
                 pass.setIndexBuffer(billboard.indexBuffer, 'uint16');
                 pass.drawIndexed(billboard.indexCount);
             }
-        }
-
-        // Draw the grid last to allow transparency to show objects behind
-        if (this.pipeline) {
-            pass.setPipeline(this.pipeline);
-            pass.setBindGroup(0, this.frameBindGroup);
-            pass.setBindGroup(1, this.bindGroup);
-            pass.setVertexBuffer(0, this.vertexBuffer);
-            pass.setIndexBuffer(this.indexBuffer, 'uint32');
-            pass.drawIndexed(6);
         }
 
         pass.end();
@@ -519,8 +519,8 @@ export class WebGpu_Canvas {
             },
             depthStencil: {
                 format: this.depthFormat,
-                depthWriteEnabled: true,
-                depthCompare: 'less-equal'
+                depthWriteEnabled: false,
+                depthCompare: 'always'
             },
             multisample: { count: this.sampleCount ?? 1 },
             primitive: {
@@ -528,7 +528,7 @@ export class WebGpu_Canvas {
                 cullMode: 'none'
             }
         }).then((pipeline) => {
-            console.log(`[addLines] Pipeline created successfully for "${id}");   // `);
+            console.log(`[addLines] Pipeline created successfully for "${id}"`);
             const line = this.lines.find(l => l.id === id);
             if (line) {
                 line.pipeline = pipeline;
