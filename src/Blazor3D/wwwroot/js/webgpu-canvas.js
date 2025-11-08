@@ -214,8 +214,18 @@ export class WebGpu_Canvas {
                 entryPoint: 'vertexMain',
                 buffers: [{ arrayStride: 20, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x2' }] }]
             },
-            fragment: { module, entryPoint: 'fragmentMain', targets: [{ format: `${this.colorFormat}-srgb` }] },
-            depthStencil: { format: this.depthFormat, depthWriteEnabled: true, depthCompare: 'less-equal' },
+            fragment: { 
+                module, 
+                entryPoint: 'fragmentMain', 
+                targets: [{
+                    format: `${this.colorFormat}-srgb`,
+                    blend: {
+                        color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+                    }
+                }] 
+            },
+            depthStencil: { format: this.depthFormat, depthWriteEnabled: false, depthCompare: 'less-equal' },
             multisample: { count: this.sampleCount ?? 1 }
         }).then((pipeline) => { this.pipeline = pipeline; });
 
@@ -256,16 +266,6 @@ export class WebGpu_Canvas {
         // Typical WebGPU frame: begin pass, bind pipeline + resources, draw, end pass, submit.
         const encoder = device.createCommandEncoder();
         const pass = encoder.beginRenderPass(this.defaultRenderPassDescriptor);
-
-        // Draw the grid
-        if (this.pipeline) {
-            pass.setPipeline(this.pipeline);
-            pass.setBindGroup(0, this.frameBindGroup);
-            pass.setBindGroup(1, this.bindGroup);
-            pass.setVertexBuffer(0, this.vertexBuffer);
-            pass.setIndexBuffer(this.indexBuffer, 'uint32');
-            pass.drawIndexed(6);
-        }
 
         // Draw all dynamic meshes
         for (const mesh of this.meshes) {
@@ -317,6 +317,16 @@ export class WebGpu_Canvas {
                 pass.setIndexBuffer(billboard.indexBuffer, 'uint16');
                 pass.drawIndexed(billboard.indexCount);
             }
+        }
+
+        // Draw the grid last to allow transparency to show objects behind
+        if (this.pipeline) {
+            pass.setPipeline(this.pipeline);
+            pass.setBindGroup(0, this.frameBindGroup);
+            pass.setBindGroup(1, this.bindGroup);
+            pass.setVertexBuffer(0, this.vertexBuffer);
+            pass.setIndexBuffer(this.indexBuffer, 'uint32');
+            pass.drawIndexed(6);
         }
 
         pass.end();
