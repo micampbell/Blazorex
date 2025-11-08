@@ -1,9 +1,11 @@
-@using Blazor3D.Models
+﻿@using Blazor3D.Models
 @using Blazor3D.Components
 
 <PageTitle>WebGPU Grid Demo</PageTitle>
 
-<div class="page-container" @onkeydown="OnKeyDown" @onkeyup="OnKeyUp" tabindex="-1">
+<div class="page-container" style="width:@(Width > 0 ? Width + "px" : "100%"); 
+height:@(Height > 0 ? Height + "px" : "100vh");"
+    @onkeydown="OnKeyDown" @onkeyup="OnKeyUp" tabindex="-1">
     @* WebGPU canvas fills the viewport *@
     <Blazor3D.Components.WebGPUCanvas @ref="_canvasRef" Options="_currentOptions" />
 
@@ -16,9 +18,9 @@
     @if (_showControls)
     {
         <div class="controls-panel">
-            <h4>?? Camera Controls</h4>
+            <h4>🎮 Camera Controls</h4>
             <div class="control-group">
-                <strong>??? Mouse:</strong>
+                <strong>🖱️ Mouse:</strong>
                 <ul>
                     <li><strong>Left Drag:</strong> Rotate camera</li>
                     <li><strong>Right Drag:</strong> Pan view</li>
@@ -27,7 +29,7 @@
                 </ul>
             </div>
             <div class="control-group">
-                <strong>?? Keyboard:</strong>
+                <strong>⌨️ Keyboard:</strong>
                 <ul>
                     <li><strong>W/S:</strong> Move forward/backward</li>
                     <li><strong>A/D:</strong> Move left/right</li>
@@ -48,10 +50,10 @@
     }
     
     <button class="add-cube-button" @onclick="AddCube">
-        ? Add Cube
+        ➕ Add Cube
     </button>
     <button class="add-wire-button" @onclick="AddWire">
-        ? Add Wire
+        ➕ Add Wire
     </button>
 </div>
 
@@ -59,7 +61,7 @@
     .page-container {
         position: relative;
         width: 100%;
-        height: 100vh;
+        /* height is set via inline style so callers can constrain the component */
         overflow: hidden;
     }
 
@@ -170,7 +172,7 @@
     }
 
     .controls-panel li::before {
-        content: '?';
+        content: '▸';
         color: #4fc3f7;
         margin-right: 6px;
     }
@@ -221,6 +223,12 @@
 </style>
 
 @code {
+    [Parameter]
+    public int Width { get; set; } = 0;
+
+    [Parameter]
+    public int Height { get; set; } = 0;
+
     private WebGpuGridOptions _currentOptions = WebGpuGridOptions.Default;
     private WebGPUCanvas? _canvasRef;
     private int _cubeCounter = 0;
@@ -321,6 +329,6 @@
 
         // TODO: Implement triangle intersection testing here
         // You can iterate through your meshes and test ray-triangle intersections
-        // using algorithms like M�ller-Trumbore or similar
+        // using algorithms like Möller-Trumbore or similar
     }
 }
