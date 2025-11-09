@@ -1,12 +1,11 @@
-﻿@using global::ModelViewer3D.Models
-<div class="page-container" style="width:@(Width > 0 ? Width + "px" : "100%"); 
+﻿<div class="page-container" style="width:@(Width > 0 ? Width + "px" : "100%"); 
 height:@(Height > 0 ? Height + "px" : "100vh");"
     @onkeydown="OnKeyDown" @onkeyup="OnKeyUp" tabindex="-1">
     @* WebGPU canvas fills the viewport *@
-    <ModelViewer3D.Components.WebGPUCanvas @ref="_canvasRef" Options="_currentOptions" />
+    <WebGPUCanvas @ref="_canvasRef" Options="_currentOptions" />
 
     @* Settings panel overlays in top-right corner *@
-    <ModelViewer3D.Components.WebGpuSettingsPanel 
+    <Vizor.WebGpuSettingsPanel 
         Options="_currentOptions" 
         OptionsChanged="OnOptionsChanged" IsExpanded="false" />
     

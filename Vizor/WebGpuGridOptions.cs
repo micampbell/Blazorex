@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace ModelViewer3D.Models;
+namespace Vizor;
 
 /// <summary>
 /// Projection type for camera rendering.

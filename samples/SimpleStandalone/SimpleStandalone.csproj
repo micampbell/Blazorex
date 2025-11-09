@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\ModelViewer3D\ModelViewer3D.csproj" />
+    <ProjectReference Include="..\..\Vizor\Vizor.csproj" />
   </ItemGroup>
 
 </Project>

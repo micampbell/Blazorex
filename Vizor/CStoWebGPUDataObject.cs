@@ -1,8 +1,7 @@
-using ModelViewer3D.Components;
 using System.Drawing;
 using System.Numerics;
 
-namespace ModelViewer3D.Models;
+namespace Vizor;
 
 /// <summary>
 /// Represents a 3D mesh with vertices and indices for WebGPU rendering.

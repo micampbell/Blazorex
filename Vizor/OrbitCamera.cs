@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace ModelViewer3D.Models;
+namespace Vizor;
 
 /// <summary>
 /// Simple ray structure for picking/selection operations.
