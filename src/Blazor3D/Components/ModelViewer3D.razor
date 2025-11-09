@@ -12,7 +12,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     @* Settings panel overlays in top-right corner *@
     <Blazor3D.Components.WebGpuSettingsPanel 
         Options="_currentOptions" 
-        OptionsChanged="OnOptionsChanged" IsExpanded="true" />
+        OptionsChanged="OnOptionsChanged" IsExpanded="false" />
     
     @* Control instructions panel - shows when ? key is held *@
     @if (_showControls)
@@ -75,7 +75,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     }
 
     .add-cube-button, .add-wire-button {
-        position: fixed;
+        position: absolute;
         bottom: 20px;
         padding: 12px 24px;
         background: #28a745;
@@ -107,7 +107,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     }
 
     .controls-panel {
-        position: fixed;
+        position: absolute;
         bottom: 20px;
         right: 20px;
         background: rgba(30, 30, 30, 0.95);
@@ -192,7 +192,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     }
 
     .help-hint {
-        position: fixed;
+        position: absolute;
         bottom: 20px;
         right: 20px;
         background: rgba(30, 30, 30, 0.8);
