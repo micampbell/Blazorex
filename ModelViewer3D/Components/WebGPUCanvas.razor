@@ -1,6 +1,9 @@
 @using System.Drawing
 @using System.Numerics
 @using global::ModelViewer3D.Models
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -355,7 +358,7 @@
 		if (!firstRender) return;
 
 		// One-time initialization: import module and create .NET reference
-		_module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/webgpu-canvas.js");
+		_module = await JS.InvokeAsync<IJSObjectReference>("import", "/_content/ModelViewer3D/js/webgpu-canvas.js");
 		_dotNetRef = DotNetObjectReference.Create(this);
 
 		// Send initial options and view matrix (this triggers the render loop in JS)
