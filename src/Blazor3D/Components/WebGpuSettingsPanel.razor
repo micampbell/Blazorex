@@ -1,9 +1,10 @@
-@using Blazor3D.Models
+﻿@using Blazor3D.Models
+@using System.Drawing
 
 <div class="webgpu-settings-panel @(IsExpanded ? "expanded" : "collapsed")">
     <button class="toggle-button" @onclick="ToggleExpanded">
-        <span class="icon">@(IsExpanded ? "?" : "?")</span>
-        WebGPU Settings
+        <span class="icon">@(IsExpanded ? "⚙️ WebGPU Settings" : "⚙️")</span>
+        
     </button>
 
     @if (IsExpanded)
@@ -15,14 +16,14 @@
                 <div class="setting-item">
                     <label>Sky Color</label>
                     <div class="color-inputs">
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.ClearColor.R" 
-                               @oninput="@(e => UpdateClearColor(r: ParseDouble(e.Value)))" />
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.ClearColor.G" 
-                               @oninput="@(e => UpdateClearColor(g: ParseDouble(e.Value)))" />
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.ClearColor.B" 
-                               @oninput="@(e => UpdateClearColor(b: ParseDouble(e.Value)))" />
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.ClearColor.A" 
-                               @oninput="@(e => UpdateClearColor(a: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.ClearColor.R" 
+                               @oninput="@(e => UpdateClearColor(r: ParseInt(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.ClearColor.G" 
+                               @oninput="@(e => UpdateClearColor(g: ParseInt(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.ClearColor.B" 
+                               @oninput="@(e => UpdateClearColor(b: ParseInt(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.ClearColor.A" 
+                               @oninput="@(e => UpdateClearColor(a: ParseInt(e.Value)))" />
                     </div>
                     <div class="color-preview" style="background: rgba(@RgbaToCss(Options.ClearColor));"></div>
                 </div>
@@ -30,14 +31,14 @@
                 <div class="setting-item">
                     <label>Line Color</label>
                     <div class="color-inputs">
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.LineColor.R" 
-                               @oninput="@(e => UpdateLineColor(r: ParseDouble(e.Value)))" />
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.LineColor.G" 
-                               @oninput="@(e => UpdateLineColor(g: ParseDouble(e.Value)))" />
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.LineColor.B" 
-                               @oninput="@(e => UpdateLineColor(b: ParseDouble(e.Value)))" />
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.LineColor.A" 
-                               @oninput="@(e => UpdateLineColor(a: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.LineColor.R"
+                               @oninput="@(e => UpdateLineColor(r: ParseInt(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.LineColor.G"
+                               @oninput="@(e => UpdateLineColor(g: ParseInt(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.LineColor.B"
+                               @oninput="@(e => UpdateLineColor(b: ParseInt(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.LineColor.A"
+                               @oninput="@(e => UpdateLineColor(a: ParseInt(e.Value)))" />
                     </div>
                     <div class="color-preview" style="background: rgba(@RgbaToCss(Options.LineColor));"></div>
                 </div>
@@ -45,14 +46,14 @@
                 <div class="setting-item">
                     <label>Base Color</label>
                     <div class="color-inputs">
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.BaseColor.R" 
-                               @oninput="@(e => UpdateBaseColor(r: ParseDouble(e.Value)))" />
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.BaseColor.G" 
-                               @oninput="@(e => UpdateBaseColor(g: ParseDouble(e.Value)))" />
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.BaseColor.B" 
-                               @oninput="@(e => UpdateBaseColor(b: ParseDouble(e.Value)))" />
-                        <input type="range" min="0" max="1" step="0.01" value="@Options.BaseColor.A" 
-                               @oninput="@(e => UpdateBaseColor(a: ParseDouble(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.BaseColor.R"
+                               @oninput="@(e => UpdateBaseColor(r: ParseInt(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.BaseColor.G"
+                               @oninput="@(e => UpdateBaseColor(g: ParseInt(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.BaseColor.B"
+                               @oninput="@(e => UpdateBaseColor(b: ParseInt(e.Value)))" />
+                        <input type="range" min="0" max="255" step="1" value="@Options.BaseColor.A"
+                               @oninput="@(e => UpdateBaseColor(a: ParseInt(e.Value)))" />
                     </div>
                     <div class="color-preview" style="background: rgba(@RgbaToCss(Options.BaseColor));"></div>
                 </div>
@@ -92,7 +93,7 @@
                 {
                     <div class="setting-item">
                         <label title="Controls perspective distortion. Lower values = narrower view (more zoom), higher = wider view.">
-                            Field of View: @(Options.Fov * 180 / Math.PI).ToString("F0")�
+                            Field of View: @(Options.Fov * 180 / Math.PI).ToString("F0")°
                         </label>
                         <input type="range" min="@(Math.PI * 0.2)" max="@(Math.PI * 0.9)" step="0.01" value="@Options.Fov" 
                                @oninput="@(e => UpdateFov(ParseDouble(e.Value)))" />
@@ -157,7 +158,7 @@
 
 <style>
     .webgpu-settings-panel {
-        position: fixed;
+        position: absolute;
         top: 20px;
         right: 20px;
         background: rgba(40, 40, 40, 0.95);
@@ -373,50 +374,53 @@
     public bool IsExpanded { get; set; } = true;
 
     private void ToggleExpanded() => IsExpanded = !IsExpanded;
-
-    private double ParseDouble(object? value) => 
+    
+    private double ParseDouble(object? value) =>
         double.TryParse(value?.ToString(), out var result) ? result : 0;
 
-    private string RgbaToCss(ColorRgba color) => 
-        $"{(int)(color.R * 255)}, {(int)(color.G * 255)}, {(int)(color.B * 255)}, {color.A}";
+    private int ParseInt(object? value) =>
+        int.TryParse(value?.ToString(), out var result) ? result : 0;
 
-    private async Task UpdateClearColor(double? r = null, double? g = null, double? b = null, double? a = null)
+
+    private string RgbaToCss(Color color) => 
+        $"{color.R}, {color.G}, {color.B}, {color.A}";
+
+    private async Task UpdateClearColor(int? r = null, int? g = null, int? b = null, int? a = null)
     {
         Options = Options with
         {
-            ClearColor = new ColorRgba(
+            ClearColor = Color.FromArgb(a ?? Options.ClearColor.A,
                 r ?? Options.ClearColor.R,
                 g ?? Options.ClearColor.G,
-                b ?? Options.ClearColor.B,
-                a ?? Options.ClearColor.A
+                b ?? Options.ClearColor.B
             )
         };
         await OptionsChanged.InvokeAsync(Options);
     }
 
-    private async Task UpdateLineColor(double? r = null, double? g = null, double? b = null, double? a = null)
+    private async Task UpdateLineColor(int? r = null, int? g = null, int? b = null, int? a = null)
     {
         Options = Options with
         {
-            LineColor = new ColorRgba(
+            LineColor = Color.FromArgb(
+                a ?? Options.LineColor.A,
                 r ?? Options.LineColor.R,
                 g ?? Options.LineColor.G,
-                b ?? Options.LineColor.B,
-                a ?? Options.LineColor.A
+                b ?? Options.LineColor.B
             )
         };
         await OptionsChanged.InvokeAsync(Options);
     }
 
-    private async Task UpdateBaseColor(double? r = null, double? g = null, double? b = null, double? a = null)
+    private async Task UpdateBaseColor(int? r = null, int? g = null, int? b = null, int? a = null)
     {
         Options = Options with
         {
-            BaseColor = new ColorRgba(
+            BaseColor = Color.FromArgb(
+                a ?? Options.BaseColor.A,
                 r ?? Options.BaseColor.R,
                 g ?? Options.BaseColor.G,
-                b ?? Options.BaseColor.B,
-                a ?? Options.BaseColor.A
+                b ?? Options.BaseColor.B
             )
         };
         await OptionsChanged.InvokeAsync(Options);

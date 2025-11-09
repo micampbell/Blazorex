@@ -1,25 +1,21 @@
+using System.Drawing;
+using System.Numerics;
+
 namespace Blazor3D.Models;
 
 /// <summary>
 /// Represents a 3D mesh with vertices and indices for WebGPU rendering.
 /// </summary>
-public record MeshData
+public record MeshData : CStoWebGPUDataObject
 {
-    /// <summary>Unique identifier for this mesh instance.</summary>
-    public required string Id { get; init; }
-    
+
     /// <summary>Vertex positions (x, y, z triplets).</summary>
-    public required float[] Vertices { get; init; }
-    
+    public required IEnumerable<Vector3> Vertices { get; init; }
+
     /// <summary>Triangle indices (3 indices per triangle).</summary>
-    public required ushort[] Indices { get; init; }
-    
-    /// <summary>
-    /// Per-triangle colors (RGBA, 0-1 range).
-    /// Array length should equal Indices.Length / 3 (one color per triangle).
-    /// </summary>
-    public ColorRgba[] Colors { get; init; } 
-    
+    public required IEnumerable<(int a, int b, int c)> Indices { get; init; }
+
+    public required MeshColoring ColorMode { get; init; }
     /// <summary>
     /// Creates a cube mesh with solid colors per triangle (engineering/CAD style).
     /// Each of the 12 triangles gets its own unique color for maximum visualization control.
@@ -27,102 +23,122 @@ public record MeshData
     public static MeshData CreateCube(string id, float minX, float minY, float minZ, float maxX, float maxY, float maxZ)
     {
         // 24 vertices (4 per face × 6 faces) for independent per-face geometry
-        var vertices = new float[]
+        var vertices = new Vector3[]
         {
-            // Front face (4 vertices)
-            minX, minY, maxZ,  // 0
-            maxX, minY, maxZ,  // 1
-            maxX, maxY, maxZ,  // 2
-            minX, maxY, maxZ,  // 3
-            
-            // Back face (4 vertices)
-            maxX, minY, minZ,  // 4
-            minX, minY, minZ,  // 5
-            minX, maxY, minZ,  // 6
-            maxX, maxY, minZ,  // 7
-            
-            // Bottom face (4 vertices)
-            minX, minY, minZ,  // 8
-            maxX, minY, minZ,  // 9
-            maxX, minY, maxZ,  // 10
-            minX, minY, maxZ,  // 11
+            // Bottom faces (4 vertices)
+            new Vector3(minX, minY, minZ),  // 0
+            new Vector3(maxX, minY, minZ),  // 1
+            new Vector3(minX, maxY, minZ),  // 2
+            new Vector3(maxX, maxY, minZ),  // 3
             
             // Top face (4 vertices)
-            minX, maxY, maxZ,  // 12
-            maxX, maxY, maxZ,  // 13
-            maxX, maxY, minZ,  // 14
-            minX, maxY, minZ,  // 15
-            
-            // Left face (4 vertices)
-            minX, minY, minZ,  // 16
-            minX, minY, maxZ,  // 17
-            minX, maxY, maxZ,  // 18
-            minX, maxY, minZ,  // 19
-            
-            // Right face (4 vertices)
-            maxX, minY, maxZ,  // 20
-            maxX, minY, minZ,  // 21
-            maxX, maxY, minZ,  // 22
-            maxX, maxY, maxZ   // 23
+            new Vector3(minX, minY, maxZ),  // 4
+            new Vector3(maxX, minY, maxZ),  // 5
+            new Vector3(minX, maxY, maxZ),  // 6
+            new Vector3(maxX, maxY, maxZ),  // 7
         };
-        
+
         // 12 triangles (2 per face × 6 faces) = 36 indices
-        var indices = new ushort[]
+        var indices = new (int a, int b, int c)[]
         {
-            // Front face (triangles 0-1)
-            0, 1, 2,  2, 3, 0,
+            // Bottom faces (minz faces)
+           ( 0, 3,1),  (0,2,3),
             
-            // Back face (triangles 2-3)
-            4, 5, 6,  6, 7, 4,
+            // Top face (maxZ faces)
+            (4, 5, 6),  (6,5, 7),
             
-            // Bottom face (triangles 4-5)
-            8, 9, 10,  10, 11, 8,
+            // front faces (miny)
+            (0,1,4),  (4,1,5),
             
-            // Top face (triangles 6-7)
-            12, 13, 14,  14, 15, 12,
+            // back faces (maxy)
+            (2,6,3),  (3,6,7),
             
-            // Left face (triangles 8-9)
-            16, 17, 18,  18, 19, 16,
+            // Left face (minx)
+            (0,4,2),  (2,4,6),
             
-            // Right face (triangles 10-11)
-            20, 21, 22,  22, 23, 20
+            // Right face (maxx)
+            (1,3,5),  (5,3,7)
         };
-        
+
         // 12 colors (one per triangle) - matches indices.Length / 3
         // Each triangle gets its own solid color for engineering visualization
-        var colors = new ColorRgba[]
+        var colors = new Color[]
         {
             // Front face triangles (2 triangles)
-            new ColorRgba(1.0, 0.0, 0.0, 1),    // Triangle 0 - Bright Red
-            new ColorRgba(0.8, 0.0, 0.0, 1),    // Triangle 1 - Dark Red
+            Color.FromArgb(111,255, 0, 0),    // Triangle 0 - Bright Red
+            Color.FromArgb(111,200, 0, 0),    // Triangle 1 - Dark Red
             
             // Back face triangles (2 triangles)
-            new ColorRgba(0.0, 1.0, 0.0, 1),    // Triangle 2 - Bright Green
-            new ColorRgba(0.0, 0.8, 0.0, 1),    // Triangle 3 - Dark Green
+            Color.FromArgb(111,0, 255, 0),    // Triangle 2 - Bright Green
+            Color.FromArgb(111,0, 200, 0),    // Triangle 3 - Dark Green
             
             // Bottom face triangles (2 triangles)
-            new ColorRgba(0.0, 0.0, 1.0, 1),    // Triangle 4 - Bright Blue
-            new ColorRgba(0.0, 0.0, 0.8, 1),    // Triangle 5 - Dark Blue
+            Color.FromArgb(111,0, 0, 255),    // Triangle 4 - Bright Blue
+            Color.FromArgb(111,0, 0, 200),    // Triangle 5 - Dark Blue
             
             // Top face triangles (2 triangles)
-            new ColorRgba(1.0, 1.0, 0.0, 1),    // Triangle 6 - Bright Yellow
-            new ColorRgba(0.8, 0.8, 0.0, 1),    // Triangle 7 - Dark Yellow
+            Color.FromArgb(111,255, 255, 0),    // Triangle 6 - Bright Yellow
+            Color.FromArgb(111,200, 200, 0),    // Triangle 7 - Dark Yellow
             
             // Left face triangles (2 triangles)
-            new ColorRgba(0.0, 1.0, 1.0, 1),    // Triangle 8 - Bright Cyan
-            new ColorRgba(0.0, 0.8, 0.8, 1),    // Triangle 9 - Dark Cyan
+            Color.FromArgb(111,0, 255, 255),    // Triangle 8 - Bright Cyan
+            Color.FromArgb(111,0, 200, 200),    // Triangle 9 - Dark Cyan
             
             // Right face triangles (2 triangles)
-            new ColorRgba(1.0, 0.0, 1.0, 1),    // Triangle 10 - Bright Magenta
-            new ColorRgba(0.8, 0.0, 0.8, 1),    // Triangle 11 - Dark Magenta
+            Color.FromArgb(111,255, 0, 255),    // Triangle 10 - Bright Magenta
+            Color.FromArgb(111,200, 0, 200),    // Triangle 11 - Dark Magenta
         };
-        
+
         return new MeshData
         {
             Id = id,
             Vertices = vertices,
             Indices = indices,
-            Colors = colors
+            Colors = colors,
+            ColorMode = MeshColoring.PerTriangle
         };
     }
+
+    internal override object CreateJavascriptData()
+    {
+        if (ColorMode == MeshColoring.PerTriangle)
+        {
+            int expectedColors = Indices.Count();
+            if (Colors.Count() != expectedColors)
+            {
+                throw new InvalidOperationException($"Color count {Colors.Count()} does not match expected per-triangle color count {expectedColors}.");
+            }
+            var vertexList = Vertices as IList<Vector3> ?? Vertices.ToList();
+
+            return new
+            {
+                id = Id,
+                vertices = Indices.SelectMany(face => TriangleIndices(face)).SelectMany(ind => Coordinates(vertexList[ind])).ToArray(),
+                indices = Enumerable.Range(0, 3 * Indices.Count()).ToArray(),
+                colors = Colors.SelectMany(c =>
+                      ColorParts(c).Concat(ColorParts(c)).Concat(ColorParts(c))).ToArray(),
+                singleColor = false
+            };
+        }
+        else
+        {
+            return new
+            {
+                id = Id,
+                vertices = Vertices.SelectMany(v => Coordinates(v)).ToArray(),
+                indices = Indices.SelectMany(face => TriangleIndices(face)).ToArray(),
+                //colors = new float[] { 1f, 0f, 0f, 1f },
+                colors = Colors.SelectMany(c => ColorParts(c)).ToArray(),
+                singleColor = ColorMode == MeshColoring.UniformColor
+            };
+        }
+    }
 }
+
+public enum MeshColoring
+{
+    UniformColor,
+    PerVertex,
+    PerTriangle
+}
+

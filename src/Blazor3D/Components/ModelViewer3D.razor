@@ -1,0 +1,334 @@
+﻿@using Blazor3D.Models
+@using Blazor3D.Components
+
+<PageTitle>WebGPU Grid Demo</PageTitle>
+
+<div class="page-container" style="width:@(Width > 0 ? Width + "px" : "100%"); 
+height:@(Height > 0 ? Height + "px" : "100vh");"
+    @onkeydown="OnKeyDown" @onkeyup="OnKeyUp" tabindex="-1">
+    @* WebGPU canvas fills the viewport *@
+    <Blazor3D.Components.WebGPUCanvas @ref="_canvasRef" Options="_currentOptions" />
+
+    @* Settings panel overlays in top-right corner *@
+    <Blazor3D.Components.WebGpuSettingsPanel 
+        Options="_currentOptions" 
+        OptionsChanged="OnOptionsChanged" IsExpanded="false" />
+    
+    @* Control instructions panel - shows when ? key is held *@
+    @if (_showControls)
+    {
+        <div class="controls-panel">
+            <h4>🎮 Camera Controls</h4>
+            <div class="control-group">
+                <strong>🖱️ Mouse:</strong>
+                <ul>
+                    <li><strong>Left Drag:</strong> Rotate camera</li>
+                    <li><strong>Right Drag:</strong> Pan view</li>
+                    <li><strong>Scroll Wheel:</strong> Zoom in/out</li>
+                    <li><strong>Double-Click:</strong> Pick/select objects</li>
+                </ul>
+            </div>
+            <div class="control-group">
+                <strong>⌨️ Keyboard:</strong>
+                <ul>
+                    <li><strong>W/S:</strong> Move forward/backward</li>
+                    <li><strong>A/D:</strong> Move left/right</li>
+                    <li><strong>Q/E:</strong> Move down/up</li>
+                    <li><strong>Shift:</strong> Hold for faster movement</li>
+                </ul>
+            </div>
+            <div class="hint">Press <strong>?</strong> to toggle this help</div>
+        </div>
+    }
+
+    @* Help hint indicator *@
+    @if (!_showControls)
+    {
+        <div class="help-hint">
+            Press <strong>?</strong> for controls
+        </div>
+    }
+    
+    <button class="add-cube-button" @onclick="AddCube">
+        ➕ Add Cube
+    </button>
+    <button class="add-wire-button" @onclick="AddWire">
+        ➕ Add Wire
+    </button>
+</div>
+
+<style>
+    .page-container {
+        position: relative;
+        width: 100%;
+        /* height is set via inline style so callers can constrain the component */
+        overflow: hidden;
+    }
+
+    .page-container:focus {
+        outline: none;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    .add-cube-button, .add-wire-button {
+        position: absolute;
+        bottom: 20px;
+        padding: 12px 24px;
+        background: #28a745;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        transition: background 0.2s, transform 0.1s;
+    }
+
+    .add-cube-button {
+        left: 20px;
+    }
+
+    .add-wire-button {
+        left: 160px;
+    }
+
+    .add-cube-button:hover, .add-wire-button:hover {
+        background: #218838;
+    }
+
+    .add-cube-button:active, .add-wire-button:active {
+        transform: scale(0.98);
+    }
+
+    .controls-panel {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(30, 30, 30, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        padding: 16px 20px;
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        font-size: 13px;
+        z-index: 1000;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        max-width: 280px;
+        backdrop-filter: blur(10px);
+        animation: slideIn 0.2s ease-out;
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .controls-panel h4 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #4fc3f7;
+    }
+
+    .control-group {
+        margin-bottom: 12px;
+    }
+
+    .control-group:last-child {
+        margin-bottom: 12px;
+    }
+
+    .control-group strong {
+        color: #ffa726;
+        font-size: 14px;
+    }
+
+    .controls-panel ul {
+        margin: 6px 0 0 0;
+        padding-left: 20px;
+        list-style: none;
+    }
+
+    .controls-panel li {
+        margin: 4px 0;
+        line-height: 1.4;
+    }
+
+    .controls-panel li strong {
+        color: #81c784;
+        font-weight: 600;
+    }
+
+    .controls-panel li::before {
+        content: '▸';
+        color: #4fc3f7;
+        margin-right: 6px;
+    }
+
+    .controls-panel .hint {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.6);
+        text-align: center;
+    }
+
+    .controls-panel .hint strong {
+        color: #4fc3f7;
+        font-weight: 600;
+    }
+
+    .help-hint {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(30, 30, 30, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 8px 12px;
+        color: rgba(255, 255, 255, 0.7);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        font-size: 12px;
+        z-index: 1000;
+        backdrop-filter: blur(5px);
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .help-hint strong {
+        color: #4fc3f7;
+        font-weight: 600;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            opacity: 0.6;
+        }
+        50% {
+            opacity: 1;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int Width { get; set; } = 0;
+
+    [Parameter]
+    public int Height { get; set; } = 0;
+
+    private WebGpuGridOptions _currentOptions = WebGpuGridOptions.Default;
+    private WebGPUCanvas? _canvasRef;
+    private int _cubeCounter = 0;
+    private bool _showControls = false;
+
+    private void OnOptionsChanged(WebGpuGridOptions newOptions)
+    {
+        _currentOptions = newOptions;
+        StateHasChanged();
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        // Show controls when ? key is pressed (Shift + / or direct ?)
+        if (e.Key == "?" || (e.Key == "/" && e.ShiftKey))
+        {
+            _showControls = true;
+            StateHasChanged();
+        }
+    }
+
+    private void OnKeyUp(KeyboardEventArgs e)
+    {
+        // Hide controls when ? key is released
+        if (e.Key == "?" || e.Key == "/")
+        {
+            _showControls = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddCube(MouseEventArgs args)
+    {
+        if (_canvasRef is null) return;
+
+        // Generate unique ID for this cube
+        var cubeId = $"cube-{_cubeCounter++}";
+
+        // Random position and size for variety
+        var random = Random.Shared;
+        var size = (float)(random.NextDouble() * 2 + 1); // 1-3 units
+        var x = (float)(random.NextDouble() * 10 - 5); // -5 to +5
+        var z = (float)(random.NextDouble() * 10 - 5); // -5 to +5
+        var y = size / 2; // Sit on the grid
+
+        // Create cube mesh data with per-vertex colors
+        // The CreateCube method now includes a rainbow color array
+        var cube = MeshData.CreateCube(
+            cubeId,
+            x - size / 2, y - size / 2, z - size / 2, // min
+            x + size / 2, y + size / 2, z + size / 2  // max
+        );
+
+        // Add to WebGPU scene
+        await _canvasRef.AddMeshAsync(cube);
+    }
+    
+    private async Task AddWire(MouseEventArgs args)
+    {
+        if (_canvasRef is null) return;
+
+        // Generate unique ID for this wire
+        var wireId = $"wire-{_cubeCounter++}";
+
+        // Random position and size for variety
+        var random = Random.Shared;
+        var size = (float)(random.NextDouble() * 6 + 4); // 1-3 units
+        var x = (float)(random.NextDouble() * 10 - 5); // -5 to +5
+        var z = (float)(random.NextDouble() * 10 - 5); // -5 to +5
+        var y = size / 2; // Sit on the grid
+
+        // Create wire/line data
+        var wire = LineData.CreateWireTet(
+            wireId,
+            x - size / 2, y - size / 2, z - size / 2, // min
+            x + size / 2, y + size / 2, z + size / 2  // max
+        );
+
+        // Add to WebGPU scene
+        await _canvasRef.AddLinesAsync(wire);
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && _canvasRef != null)
+        {
+            // Subscribe to picking events
+            _canvasRef.OnPickingRayCreated += OnPickingRayCreated;
+        }
+    }
+
+    private void OnPickingRayCreated(Ray pickingRay)
+    {
+        // Example: Log the ray information
+        Console.WriteLine($"Picking ray created:");
+        Console.WriteLine($"  Origin: ({pickingRay.Anchor.X:F3}, {pickingRay.Anchor.Y:F3}, {pickingRay.Anchor.Z:F3})");
+        Console.WriteLine($"  Direction: ({pickingRay.Direction.X:F3}, {pickingRay.Direction.Y:F3}, {pickingRay.Direction.Z:F3})");
+
+        // TODO: Implement triangle intersection testing here
+        // You can iterate through your meshes and test ray-triangle intersections
+        // using algorithms like Möller-Trumbore or similar
+    }
+}
