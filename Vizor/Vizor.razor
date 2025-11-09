@@ -6,7 +6,6 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
-
 <div class="page-container" style="width:@(Width > 0 ? Width + "px" : "100%");
 height:@(Height > 0 ? Height + "px" : "100vh");"
 	 @onkeydown="OnKeyDown" @onkeyup="OnKeyUp" tabindex="-1">
@@ -236,7 +235,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	public event Action<Ray>? OnPickingRayCreated;
 
 	private IJSObjectReference? _module;
-	//private DotNetObjectReference<WebGPUCanvas>? _dotNetRef;
+	private DotNetObjectReference<Vizor>? _dotNetRef;
 	private bool _ready;
 	private string? _error;
 	private bool _isDragging;
@@ -569,12 +568,47 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	{
 		if (!firstRender) return;
 
+		// Subscribe to picking events
+		OnPickingRayCreated += OnPickingRayRun;
 		// One-time initialization: import module and create .NET reference
-		_module = await JS.InvokeAsync<IJSObjectReference>("import", "/_content/Vizor/js/webgpu-canvas.js");
-		//_dotNetRef = DotNetObjectReference.Create(_canvasRef);
+		try
+		{
+			_module = await JS.InvokeAsync<IJSObjectReference>("import", "/_content/Vizor/js/webgpu-canvas.js");
+		}
+		catch (JSException jse)
+		{
+			_module = null;
+			_error = $"Failed to import webgpu module: {jse.Message}";
+			Console.Error.WriteLine(_error);
+			try { await JS.InvokeVoidAsync("console.error", _error); } catch { }
+			StateHasChanged();
+			return;
+		}
+		catch (Exception ex)
+		{
+			_module = null;
+			_error = $"Unexpected error importing webgpu module: {ex.Message}";
+			Console.Error.WriteLine(_error);
+			try { await JS.InvokeVoidAsync("console.error", _error); } catch { }
+			StateHasChanged();
+			return;
+		}
+
+		// Create DotNetObjectReference for JS -> .NET callbacks
+		_dotNetRef = DotNetObjectReference.Create(this);
 
 		// Send initial options and view matrix (this triggers the render loop in JS)
-		await SendOptionsToJavaScriptAsync(isInitializing: true);
+		try
+		{
+			await SendOptionsToJavaScriptAsync(isInitializing: true);
+		}
+		catch (Exception ex)
+		{
+			_error = $"Error initializing WebGPU canvas: {ex.Message}";
+			Console.Error.WriteLine(_error);
+			try { await JS.InvokeVoidAsync("console.error", _error); } catch { }
+			StateHasChanged();
+		}
 	}
 
 	protected override async Task OnParametersSetAsync()
@@ -591,7 +625,8 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		if (isInitializing)
 		{
 			// Pass initial view matrix to JavaScript
-			await _module.InvokeVoidAsync("initGPU_Canvas", this, _canvasRef, Options, Camera.ConvertForJavaScript());
+			// Use DotNetObjectReference for callbacks instead of passing 'this'
+			await _module.InvokeVoidAsync("initGPU_Canvas", _dotNetRef, _canvasRef, Options, Camera.ConvertForJavaScript());
 		}
 		else
 		{
@@ -636,7 +671,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 			try { await _module.DisposeAsync(); } catch { /* ignore */ }
 		}
 
-		//this.Dispose();
+		_dotNetRef?.Dispose();
 	}
 
 	private void ResetCamera()
@@ -659,16 +694,6 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	{
 		_currentOptions = newOptions;
 		StateHasChanged();
-	}
-
-
-	protected override void OnAfterRender(bool firstRender)
-	{
-		if (firstRender && _canvasRef != null)
-		{
-			// Subscribe to picking events
-			OnPickingRayCreated += OnPickingRayRun;
-		}
 	}
 
 	private void OnPickingRayRun(Ray pickingRay)
