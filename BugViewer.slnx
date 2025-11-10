@@ -1,4 +1,4 @@
 <Solution>
-  <Project Path="Vizor/Vizor.csproj" />
   <Project Path="samples/SimpleStandalone/SimpleStandalone.csproj" Id="fd4b13c7-fedc-4651-8b9b-ed69c3ac9381" />
+  <Project Path="BugViewer/BugViewer.csproj" />
 </Solution>

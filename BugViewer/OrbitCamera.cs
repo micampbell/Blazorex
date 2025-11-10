@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace Vizor;
+namespace BugViewer;
 
 /// <summary>
 /// Simple ray structure for picking/selection operations.

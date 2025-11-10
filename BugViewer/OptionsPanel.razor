@@ -364,7 +364,7 @@
 
 @code {
     [Parameter]
-    public VizorDisplayOptions Options { get; set; } = VizorDisplayOptions.Default;
+    public BugViewerOptions Options { get; set; } = BugViewerOptions.Default;
 
     [Parameter]
     public bool IsExpanded { get; set; } = true;
@@ -495,7 +495,7 @@
 
     private async Task ResetToDefaults()
     {
-        var defaultOptions = VizorDisplayOptions.Default;
+        var defaultOptions = BugViewerOptions.Default;
         Options.ClearColor = defaultOptions.ClearColor;
         Options.LineColor = defaultOptions.LineColor;
         Options.BaseColor = defaultOptions.BaseColor;

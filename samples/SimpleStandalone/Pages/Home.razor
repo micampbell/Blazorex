@@ -1,7 +1,7 @@
 ﻿@page "/"
 @using System.Numerics
 @using System.Drawing
-@using Vizor
+@using BugViewer
 
 <PageTitle>Home</PageTitle>
 
@@ -11,8 +11,8 @@
 <button class="add-wire-button" @onclick="AddWire">
 	➕ Add Wire
 </button>
-<Vizor.Vizor @ref="vizor" />
-@* <Vizor.Vizor Width="800" Height="800" @ref="vizor" /> *@
+<BugViewer.BugViewer @ref="vizor" />
+@* <BugViewer.BugViewer Width="800" Height="800" @ref="vizor" /> *@
 
 <style>
 	.add-cube-button, .add-wire-button {
@@ -51,7 +51,7 @@
 
 
 @code {
-	private Vizor? vizor;
+	private BugViewer? vizor;
 
 	private async Task AddCube(MouseEventArgs args)
 	{
@@ -143,7 +143,7 @@
 			Vertices = vertices,
 			Indices = indices,
 			Colors = colors,
-			ColorMode = MeshColoring.PerTriangle
+			ColorMode = MeshColoring.UniformColor
 		};
 
 

@@ -2,7 +2,7 @@ using System.Drawing;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace Vizor;
+namespace BugViewer;
 
 /// <summary>
 /// Projection type for camera rendering.
@@ -20,7 +20,7 @@ public enum ProjectionType
 /// Options passed from C# to JavaScript for WebGPU grid rendering.
 /// Matches the shape expected by webgpu-canvas.js initGridDemo/updateDisplayOptions.
 /// </summary>
-public class VizorDisplayOptions : INotifyPropertyChanged
+public class BugViewerOptions : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -30,7 +30,7 @@ public class VizorDisplayOptions : INotifyPropertyChanged
     }
 
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
-    public static VizorDisplayOptions Default => new()
+    public static BugViewerOptions Default => new()
     {
         ClearColor = Color.FromArgb(0, 233, 233, 255),
         LineColor = Color.FromArgb(215, 215, 215),

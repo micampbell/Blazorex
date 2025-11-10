@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Numerics;
 
-namespace Vizor;
+namespace BugViewer;
 
 /// <summary>
 /// Represents a 3D mesh with vertices and indices for WebGPU rendering.

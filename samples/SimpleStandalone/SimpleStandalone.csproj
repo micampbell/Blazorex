@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Vizor\Vizor.csproj" />
+    <ProjectReference Include="..\..\BugViewer\BugViewer.csproj" />
   </ItemGroup>
 
 </Project>
