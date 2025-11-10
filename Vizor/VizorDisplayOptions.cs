@@ -18,16 +18,16 @@ public enum ProjectionType
 /// Options passed from C# to JavaScript for WebGPU grid rendering.
 /// Matches the shape expected by webgpu-canvas.js initGridDemo/updateGridOptions.
 /// </summary>
-public record WebGpuGridOptions
+public record VizorDisplayOptions
 {
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
-    public static readonly WebGpuGridOptions Default = new()
+    public static readonly VizorDisplayOptions Default = new()
     {
-        ClearColor = Color.FromArgb(100, 100, 100, 255),
-        LineColor = Color.FromArgb(255, 255, 255),
-        BaseColor = Color.FromArgb(10, 50, 100, 50),
-        LineWidthX = 0.2,
-        LineWidthY = 0.2,
+        ClearColor = Color.FromArgb(0, 233, 233, 255),
+        LineColor = Color.FromArgb(215, 215, 215),
+        BaseColor = Color.FromArgb(0, 0, 0, 0),
+        LineWidthX = 0.1,
+        LineWidthY = 0.1,
         SampleCount = 4,
         ProjectionType = ProjectionType.Perspective,
         Fov = Math.PI * 0.5,
@@ -79,9 +79,9 @@ public record WebGpuGridOptions
     /// </summary>
     public object ToJavascriptOptions() => new
     {
-        clearColor = new { r = ClearColor.R / 255.0, g = ClearColor.G / 255.0, b = ClearColor.B / 255.0, a = ClearColor.A / 255.0 },
-        lineColor = new { r = LineColor.R / 255.0, g = LineColor.G / 255.0, b = LineColor.B / 255.0, a = LineColor.A / 255.0 },
-        baseColor = new { r = BaseColor.R / 255.0, g = BaseColor.G / 255.0, b = BaseColor.B / 255.0, a = BaseColor.A / 255.0 },
+        clearColor = new { r = ClearColor.R / 255f, g = ClearColor.G / 255f, b = ClearColor.B / 255f, a = ClearColor.A / 255f },
+        lineColor = new { r = LineColor.R / 255f, g = LineColor.G / 255f, b = LineColor.B / 255f, a = LineColor.A / 255f },
+        baseColor = new { r = BaseColor.R / 255f, g = BaseColor.G / 255f, b = BaseColor.B / 255f, a = BaseColor.A / 255f },
         lineWidthX = LineWidthX,
         lineWidthY = LineWidthY,
         sampleCount = SampleCount,
@@ -92,10 +92,3 @@ public record WebGpuGridOptions
         zFar = ZFar
     };
 }
-
-/// <summary>
-/// RGBA color as 0.0-1.0 floats for WebGPU/JS interop.
-/// </summary>
-//public record Color(double R, double G, double B, double A)
-//{
-//}

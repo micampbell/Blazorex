@@ -364,10 +364,10 @@
 
 @code {
     [Parameter]
-    public WebGpuGridOptions Options { get; set; } = WebGpuGridOptions.Default;
+    public VizorDisplayOptions Options { get; set; } = VizorDisplayOptions.Default;
 
     [Parameter]
-    public EventCallback<WebGpuGridOptions> OptionsChanged { get; set; }
+    public EventCallback<VizorDisplayOptions> OptionsChanged { get; set; }
 
     [Parameter]
     public bool IsExpanded { get; set; } = true;
@@ -500,7 +500,7 @@
 
     private async Task ResetToDefaults()
     {
-        Options = WebGpuGridOptions.Default;
+        Options = VizorDisplayOptions.Default;
         await OptionsChanged.InvokeAsync(Options);
         _showMsaaRefreshPrompt = false;
     }

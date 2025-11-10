@@ -28,7 +28,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	</canvas>
 
 	@* Settings panel overlays in top-right corner *@
-	<WebGpuSettingsPanel Options="_currentOptions"
+	<OptionsPanel Options="_currentOptions"
 						 OptionsChanged="OnOptionsChanged" IsExpanded="false" />
 
 	@* Control instructions panel - shows when ? key is held *@
@@ -211,7 +211,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	[Parameter]
 	public int Height { get; set; } = 0;
 
-	private WebGpuGridOptions _currentOptions = WebGpuGridOptions.Default;
+	private VizorDisplayOptions _currentOptions = VizorDisplayOptions.Default;
 	private ElementReference? _canvasRef;
 	private bool _showControls = false;
 
@@ -220,7 +220,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	/// WebGPU rendering options. Pass a configured instance to control grid appearance and camera.
 	/// </summary>
 	[Parameter]
-	public WebGpuGridOptions Options { get; set; } = WebGpuGridOptions.Default;
+	public VizorDisplayOptions Options { get; set; } = VizorDisplayOptions.Default;
 
 	/// <summary>
 	/// Camera instance for controlling the 3D view.
@@ -628,7 +628,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 			// Use DotNetObjectReference for callbacks instead of passing 'this'
 			await _module.InvokeVoidAsync("initGPU_Canvas", _dotNetRef, _canvasRef, Options, Camera.ConvertForJavaScript());
 		}
-		else
+		//else
 		{
 			await _module.InvokeVoidAsync("updateGridOptions", Options.ToJavascriptOptions());
 		}
@@ -690,7 +690,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		yield return c.B / 255f;
 		yield return c.A / 255f;
 	}
-	private void OnOptionsChanged(WebGpuGridOptions newOptions)
+	private void OnOptionsChanged(VizorDisplayOptions newOptions)
 	{
 		_currentOptions = newOptions;
 		StateHasChanged();
