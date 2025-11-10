@@ -14,7 +14,7 @@
 //      • options: { clearColor, lineColor, baseColor, lineWidthX, lineWidthY, sampleCount, fov, zNear, zFar }
 //      • viewMatrix: Initial view matrix as float array from C#
 //      • Initializes WebGPU, builds pipeline/buffers, and starts the render loop
-//  - updateGridOptions(options)
+//  - updateDisplayOptions(options)
 //      • Hot-updates grid colors/line widths and camera config.
 //      • Updates GPU uniform buffer immediately when possible.
 //  - updateViewMatrix(matrixArray)
@@ -1389,7 +1389,7 @@ export function updateViewMatrix(matrixArray) {
 
 // Called by Blazor (SendOptionsToJavaScriptAsync) line 163
 // of WebGPUCanvas.razor.cs
-export function updateGridOptions(options) {
+export function updateDisplayOptions(options) {
     // Called by Blazor when parameters change. Uniforms are updated immediately.
     if (!plotSpace || !options) return;
 

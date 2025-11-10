@@ -367,9 +367,6 @@
     public VizorDisplayOptions Options { get; set; } = VizorDisplayOptions.Default;
 
     [Parameter]
-    public EventCallback<VizorDisplayOptions> OptionsChanged { get; set; }
-
-    [Parameter]
     public bool IsExpanded { get; set; } = true;
 
     [Parameter]
@@ -391,87 +388,78 @@
     private string RgbaToCss(Color color) => 
         $"{color.R}, {color.G}, {color.B}, {color.A}";
 
-    private async Task UpdateClearColor(int? r = null, int? g = null, int? b = null, int? a = null)
+    private Task UpdateClearColor(int? r = null, int? g = null, int? b = null, int? a = null)
     {
-        Options = Options with
-        {
-            ClearColor = Color.FromArgb(a ?? Options.ClearColor.A,
-                r ?? Options.ClearColor.R,
-                g ?? Options.ClearColor.G,
-                b ?? Options.ClearColor.B
-            )
-        };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.ClearColor = Color.FromArgb(a ?? Options.ClearColor.A,
+            r ?? Options.ClearColor.R,
+            g ?? Options.ClearColor.G,
+            b ?? Options.ClearColor.B
+        );
+        return Task.CompletedTask;
     }
 
-    private async Task UpdateLineColor(int? r = null, int? g = null, int? b = null, int? a = null)
+    private Task UpdateLineColor(int? r = null, int? g = null, int? b = null, int? a = null)
     {
-        Options = Options with
-        {
-            LineColor = Color.FromArgb(
-                a ?? Options.LineColor.A,
-                r ?? Options.LineColor.R,
-                g ?? Options.LineColor.G,
-                b ?? Options.LineColor.B
-            )
-        };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.LineColor = Color.FromArgb(
+            a ?? Options.LineColor.A,
+            r ?? Options.LineColor.R,
+            g ?? Options.LineColor.G,
+            b ?? Options.LineColor.B
+        );
+        return Task.CompletedTask;
     }
 
-    private async Task UpdateBaseColor(int? r = null, int? g = null, int? b = null, int? a = null)
+    private Task UpdateBaseColor(int? r = null, int? g = null, int? b = null, int? a = null)
     {
-        Options = Options with
-        {
-            BaseColor = Color.FromArgb(
-                a ?? Options.BaseColor.A,
-                r ?? Options.BaseColor.R,
-                g ?? Options.BaseColor.G,
-                b ?? Options.BaseColor.B
-            )
-        };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.BaseColor = Color.FromArgb(
+            a ?? Options.BaseColor.A,
+            r ?? Options.BaseColor.R,
+            g ?? Options.BaseColor.G,
+            b ?? Options.BaseColor.B
+        );
+        return Task.CompletedTask;
     }
 
-    private async Task UpdateLineWidthX(double value)
+    private Task UpdateLineWidthX(double value)
     {
-        Options = Options with { LineWidthX = value };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.LineWidthX = value;
+        return Task.CompletedTask;
     }
 
-    private async Task UpdateLineWidthY(double value)
+    private Task UpdateLineWidthY(double value)
     {
-        Options = Options with { LineWidthY = value };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.LineWidthY = value;
+        return Task.CompletedTask;
     }
 
-    private async Task UpdateFov(double value)
+    private Task UpdateFov(double value)
     {
-        Options = Options with { Fov = value };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.Fov = value;
+        return Task.CompletedTask;
     }
 
-    private async Task UpdateOrthoSize(double value)
+    private Task UpdateOrthoSize(double value)
     {
-        Options = Options with { OrthoSize = value };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.OrthoSize = value;
+        return Task.CompletedTask;
     }
 
-    private async Task UpdateZNear(double value)
+    private Task UpdateZNear(double value)
     {
-        Options = Options with { ZNear = value };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.ZNear = value;
+        return Task.CompletedTask;
     }
 
-    private async Task UpdateZFar(double value)
+    private Task UpdateZFar(double value)
     {
-        Options = Options with { ZFar = value };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.ZFar = value;
+        return Task.CompletedTask;
     }
 
-    private async Task UpdateProjectionType(ProjectionType value)
+    private Task UpdateProjectionType(ProjectionType value)
     {
-        Options = Options with { ProjectionType = value };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.ProjectionType = value;
+        return Task.CompletedTask;
     }
 
     private async Task HandleProjectionTypeChange(ChangeEventArgs e)
@@ -482,10 +470,10 @@
         }
     }
 
-    private async Task UpdateSampleCount(int value)
+    private Task UpdateSampleCount(int value)
     {
-        Options = Options with { SampleCount = value };
-        await OptionsChanged.InvokeAsync(Options);
+        Options.SampleCount = value;
+        return Task.CompletedTask;
     }
 
     private async Task HandleSampleCountChange(ChangeEventArgs e)
@@ -507,8 +495,19 @@
 
     private async Task ResetToDefaults()
     {
-        Options = VizorDisplayOptions.Default;
-        await OptionsChanged.InvokeAsync(Options);
+        var defaultOptions = VizorDisplayOptions.Default;
+        Options.ClearColor = defaultOptions.ClearColor;
+        Options.LineColor = defaultOptions.LineColor;
+        Options.BaseColor = defaultOptions.BaseColor;
+        Options.LineWidthX = defaultOptions.LineWidthX;
+        Options.LineWidthY = defaultOptions.LineWidthY;
+        Options.SampleCount = defaultOptions.SampleCount;
+        Options.ProjectionType = defaultOptions.ProjectionType;
+        Options.Fov = defaultOptions.Fov;
+        Options.OrthoSize = defaultOptions.OrthoSize;
+        Options.ZNear = defaultOptions.ZNear;
+        Options.ZFar = defaultOptions.ZFar;
+
         _showMsaaRefreshPrompt = false;
     }
 

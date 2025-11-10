@@ -28,8 +28,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	</canvas>
 
 	@* Settings panel overlays in top-right corner *@
-	<OptionsPanel Options="_currentOptions"
-						 OptionsChanged="OnOptionsChanged" @bind-IsExpanded="_isOptionsPanelExpanded" />
+	<OptionsPanel Options="_currentOptions" @bind-IsExpanded="_isOptionsPanelExpanded" />
 
 	@* Control instructions panel - shows when ? key is held *@
 	@if (_showControls)
@@ -264,6 +263,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	{
 		// Start keyboard movement timer (60 FPS for smooth movement)
 		_keyboardMoveTimer = new System.Threading.Timer(_ => ProcessKeyboardMovement(), null, 0, 16);
+		_currentOptions.PropertyChanged += OnOptionsChanged;
 	}
 
 	#region Public Facing Methods
@@ -627,9 +627,9 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		{
 			// Pass initial view matrix to JavaScript
 			// Use DotNetObjectReference for callbacks instead of passing 'this'
-			await _module.InvokeVoidAsync("initGPU_Canvas", _dotNetRef, _canvasRef, Options, Camera.ConvertForJavaScript());
+			await _module.InvokeVoidAsync("initGPU_Canvas", _dotNetRef, _canvasRef, _currentOptions, Camera.ConvertForJavaScript());
 		}
-			await _module.InvokeVoidAsync("updateGridOptions", Options.ToJavascriptOptions());
+			await _module.InvokeVoidAsync("updateDisplayOptions", _currentOptions.ToJavascriptOptions());
 	}
 
 	[JSInvokable]
@@ -688,10 +688,10 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		yield return c.B / 255f;
 		yield return c.A / 255f;
 	}
-	private void OnOptionsChanged(VizorDisplayOptions newOptions)
+	private async void OnOptionsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
 	{
-		_currentOptions = newOptions;
-		StateHasChanged();
+		await SendOptionsToJavaScriptAsync(false);
+		await InvokeAsync(StateHasChanged);
 	}
 
 	private void OnPickingRayRun(Ray pickingRay)

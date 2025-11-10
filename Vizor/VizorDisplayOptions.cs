@@ -1,4 +1,6 @@
 using System.Drawing;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace Vizor;
 
@@ -16,12 +18,19 @@ public enum ProjectionType
 
 /// <summary>
 /// Options passed from C# to JavaScript for WebGPU grid rendering.
-/// Matches the shape expected by webgpu-canvas.js initGridDemo/updateGridOptions.
+/// Matches the shape expected by webgpu-canvas.js initGridDemo/updateDisplayOptions.
 /// </summary>
-public record VizorDisplayOptions
+public class VizorDisplayOptions : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
-    public static readonly VizorDisplayOptions Default = new()
+    public static VizorDisplayOptions Default => new()
     {
         ClearColor = Color.FromArgb(0, 233, 233, 255),
         LineColor = Color.FromArgb(215, 215, 215),
@@ -36,43 +45,54 @@ public record VizorDisplayOptions
         ZFar = 128
     };
 
-    public required Color ClearColor { get; init; }
-    public required Color LineColor { get; init; }
-    public required Color BaseColor { get; init; }
+    private Color _clearColor;
+    public Color ClearColor { get => _clearColor; set { _clearColor = value; OnPropertyChanged(); } }
+
+    private Color _lineColor;
+    public Color LineColor { get => _lineColor; set { _lineColor = value; OnPropertyChanged(); } }
+
+    private Color _baseColor;
+    public Color BaseColor { get => _baseColor; set { _baseColor = value; OnPropertyChanged(); } }
 
     private double _lineWidthX;
     private double _lineWidthY;
 
     /// <summary>Grid line width in X direction (0.0 to 1.0).</summary>
-    public required double LineWidthX
+    public double LineWidthX
     {
         get => _lineWidthX;
-        init => _lineWidthX = Math.Clamp(value, 0.0, 1.0);
+        set { _lineWidthX = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
     }
 
     /// <summary>Grid line width in Y direction (0.0 to 1.0).</summary>
-    public required double LineWidthY
+    public double LineWidthY
     {
         get => _lineWidthY;
-        init => _lineWidthY = Math.Clamp(value, 0.0, 1.0);
+        set { _lineWidthY = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
     }
 
-    public required int SampleCount { get; init; }
+    private int _sampleCount;
+    public int SampleCount { get => _sampleCount; set { _sampleCount = value; OnPropertyChanged(); } }
 
+    private ProjectionType _projectionType;
     /// <summary>Camera projection type (Perspective or Orthographic).</summary>
-    public required ProjectionType ProjectionType { get; init; }
+    public ProjectionType ProjectionType { get => _projectionType; set { _projectionType = value; OnPropertyChanged(); } }
 
+    private double _fov;
     /// <summary>Field of view in radians (used for Perspective projection).</summary>
-    public required double Fov { get; init; }
+    public double Fov { get => _fov; set { _fov = value; OnPropertyChanged(); } }
 
+    private double _orthoSize;
     /// <summary>Half-height of view in world units (used for Orthographic projection).</summary>
-    public required double OrthoSize { get; init; }
+    public double OrthoSize { get => _orthoSize; set { _orthoSize = value; OnPropertyChanged(); } }
 
+    private double _zNear;
     /// <summary>Near clipping plane distance.</summary>
-    public required double ZNear { get; init; }
+    public double ZNear { get => _zNear; set { _zNear = value; OnPropertyChanged(); } }
 
+    private double _zFar;
     /// <summary>Far clipping plane distance.</summary>
-    public required double ZFar { get; init; }
+    public double ZFar { get => _zFar; set { _zFar = value; OnPropertyChanged(); } }
 
     /// <summary>
     /// Converts this options object to a JS-friendly format with colors normalized to 0-1 floats.

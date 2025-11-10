@@ -1,31 +1,25 @@
 # Blazorex
-[![Nuget](https://img.shields.io/nuget/v/Blazorex?style=plastic)](https://www.nuget.org/packages/Blazorex/)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mizrael/Blazorex)
+[![Nuget](https://img.shields.io/nuget/v/Vizor?style=plastic)](https://www.nuget.org/packages/Blazorex/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mizrael/Vizor)
 
-![Blazorex](https://raw.githubusercontent.com/mizrael/Blazorex/refs/heads/master/blazorex-logo.png)
+![Blazorex](https://raw.githubusercontent.com/micampbell/Vizor/refs/heads/master/blazorex-logo.png)
 
 ## Description
-Blazorex is an HTML Canvas wrapper library for Blazor.
+Vizor is a Blazor component that renders a 3D file with the new WebGPU. It includes controls to view a single part (as opposed to being a game engine). The goal is to provide a clear method to view 3D parts with minimal Javascript.
 
-![Doom fire effect with Blazorex](https://raw.githubusercontent.com/mizrael/Blazorex/master/sample.gif "Blazorex")
-
-It has some interesting functionalities like:
-- multiple canvases
-- background rendering
-- image rendering
-- procedural image generation (yes, the fire on the background is fully procedural!
-Thanks [filipedeschamps](https://github.com/filipedeschamps) for the awesome repository showing how to render the [Doom fire](https://github.com/filipedeschamps/doom-fire-algorithm)! )
+The main things that are visualized are:
+- triangles/meshes
+- polylines
+- text billboards
 
 ## Installation
-Blazorex can be installed as Nuget package: https://www.nuget.org/packages/Blazorex/
+Vizor can be installed as Nuget package: https://www.nuget.org/packages/Vizor/
 
 ## Usage
 
 ### Simple scenario
 
-Just add the `Canvas` Component to your Razor page and register to the `OnCanvasReady` to receive the `CanvasBase` instance.
-
-Then use `OnFrameReady` to define your update/render logic:
+Just add the `Vizor` Component to your Razor page.:
 
 ```csharp
 <Canvas Width="800" Height="600" 
@@ -48,46 +42,8 @@ Then use `OnFrameReady` to define your update/render logic:
 
 ```
 
-You might also need to update your `index.html` to include the library's CSS:
-```html
-<head>
-    <!-- other tags... -->
-    <link href="_content/Blazorex/blazorex.css" rel="stylesheet" />
-</head>
-```
+For a complete list of options for Canvas initialization, see [here](https://github.com/micampbell/Vizor/).
 
-### Multiple Canvases
-In case you want to have multiple canvases on the same page, you can use the `CanvasManager` component instead:
-
-```csharp
-<CanvasManager @ref="_canvasManager" />
-
-@code{
-        CanvasManager _canvasManager;
-        
-        protected override async Task OnAfterRenderAsync(bool firstRender)
-        {
-            if (!firstRender)
-                return;
-        
-            _canvasManager.CreateCanvas("myCanvas", new CanvasCreationOptions()
-            {
-                Width = 800,
-                Height = 600,
-                Hidden = false,
-                OnCanvasReady = this.OnMyCanvasReady,
-                OnFrameReady = this.OnMyCanvasFrameReady,
-            });
-        }
-}
-```
-
-You simply have to get a reference to the `CanvasManager` and then call the `CreateCanvas` passing an instance of `CanvasCreationOptions` with the desired parameters. 
-
-For a complete list of options for Canvas initialization, see [here](https://github.com/mizrael/Blazorex/blob/master/src/Blazorex/CanvasCreationOptions.cs).
-
-For the complete documentation, check the [official website](https://deepwiki.com/mizrael/blazorex)
+For the complete documentation, check the [official website](https://deepwiki.com/micampbell/vizor)
 
 The [./samples](./samples) folder contains some examples of how to setup the canvas and draw some cool stuff :)
-
-A sample game can be found here: [Blazeroids](https://github.com/mizrael/Blazeroids)
