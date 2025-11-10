@@ -372,7 +372,14 @@
     [Parameter]
     public bool IsExpanded { get; set; } = true;
 
-    private void ToggleExpanded() => IsExpanded = !IsExpanded;
+    [Parameter]
+    public EventCallback<bool> IsExpandedChanged { get; set; }
+
+    private async Task ToggleExpanded()
+    {
+        IsExpanded = !IsExpanded;
+        await IsExpandedChanged.InvokeAsync(IsExpanded);
+    }
     
     private double ParseDouble(object? value) =>
         double.TryParse(value?.ToString(), out var result) ? result : 0;

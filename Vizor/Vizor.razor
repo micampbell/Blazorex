@@ -29,7 +29,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 
 	@* Settings panel overlays in top-right corner *@
 	<OptionsPanel Options="_currentOptions"
-						 OptionsChanged="OnOptionsChanged" IsExpanded="false" />
+						 OptionsChanged="OnOptionsChanged" @bind-IsExpanded="_isOptionsPanelExpanded" />
 
 	@* Control instructions panel - shows when ? key is held *@
 	@if (_showControls)
@@ -214,6 +214,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	private VizorDisplayOptions _currentOptions = VizorDisplayOptions.Default;
 	private ElementReference? _canvasRef;
 	private bool _showControls = false;
+	private bool _isOptionsPanelExpanded = true;
 
 
 	/// <summary>
@@ -628,10 +629,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 			// Use DotNetObjectReference for callbacks instead of passing 'this'
 			await _module.InvokeVoidAsync("initGPU_Canvas", _dotNetRef, _canvasRef, Options, Camera.ConvertForJavaScript());
 		}
-		//else
-		{
 			await _module.InvokeVoidAsync("updateGridOptions", Options.ToJavascriptOptions());
-		}
 	}
 
 	[JSInvokable]
