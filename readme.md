@@ -1,11 +1,11 @@
-# Blazorex
-[![Nuget](https://img.shields.io/nuget/v/Vizor?style=plastic)](https://www.nuget.org/packages/Blazorex/)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mizrael/Vizor)
+# BugViewer
+[![Nuget](https://img.shields.io/nuget/v/BugViewer?style=plastic)](https://www.nuget.org/packages/BugViewer/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/micampbell/BugViewer)
 
-![Blazorex](https://raw.githubusercontent.com/micampbell/Vizor/refs/heads/master/blazorex-logo.png)
+![BugViewer](https://raw.githubusercontent.com/micampbell/BugViewer/refs/heads/master/BugViewer-logo.png)
 
 ## Description
-Vizor is a Blazor component that renders a 3D file with the new WebGPU. It includes controls to view a single part (as opposed to being a game engine). The goal is to provide a clear method to view 3D parts with minimal Javascript.
+BugViewer is a Blazor component that renders a 3D file with the new WebGPU. It includes controls to view a single part (as opposed to being a game engine). The goal is to provide a clear method to view 3D parts with minimal Javascript.
 
 The main things that are visualized are:
 - triangles/meshes
@@ -13,13 +13,13 @@ The main things that are visualized are:
 - text billboards
 
 ## Installation
-Vizor can be installed as Nuget package: https://www.nuget.org/packages/Vizor/
+BugViewer can be installed as Nuget package: https://www.nuget.org/packages/BugViewer/
 
 ## Usage
 
 ### Simple scenario
 
-Just add the `Vizor` Component to your Razor page.:
+Just add the `BugViewer` Component to your Razor page.:
 
 ```csharp
 <Canvas Width="800" Height="600" 
@@ -42,8 +42,8 @@ Just add the `Vizor` Component to your Razor page.:
 
 ```
 
-For a complete list of options for Canvas initialization, see [here](https://github.com/micampbell/Vizor/).
+For a complete list of options for Canvas initialization, see [here](https://github.com/micampbell/BugViewer/).
 
-For the complete documentation, check the [official website](https://deepwiki.com/micampbell/vizor)
+For the complete documentation, check the [official website](https://deepwiki.com/micampbell/BugViewer)
 
 The [./samples](./samples) folder contains some examples of how to setup the canvas and draw some cool stuff :)
