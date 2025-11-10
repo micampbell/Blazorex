@@ -2,7 +2,7 @@
 [![Nuget](https://img.shields.io/nuget/v/BugViewer?style=plastic)](https://www.nuget.org/packages/BugViewer/)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/micampbell/BugViewer)
 
-![BugViewer](https://raw.githubusercontent.com/micampbell/BugViewer/refs/heads/master/BugViewer-logo.png)
+![BugViewer](https://raw.githubusercontent.com/micampbell/BugViewer/refs/heads/master/docs/logo.png)
 
 ## Description
 BugViewer is a Blazor component that renders a 3D file with the new WebGPU. It includes controls to view a single part (as opposed to being a game engine). The goal is to provide a clear method to view 3D parts with minimal Javascript.
