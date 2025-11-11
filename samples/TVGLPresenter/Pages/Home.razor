@@ -1,0 +1,72 @@
+﻿@page "/"
+@using System.Numerics
+@using System.Drawing
+@using BugViewer
+@using TVGL
+
+<PageTitle>Home</PageTitle>
+
+<button class="open-button" @onclick="OpenFile">
+	OpenFile
+</button>
+<BugViewer @ref="viewer" />
+@* <BugViewer.BugViewer Width="800" Height="800" @ref="viewer" /> *@
+
+<style>
+	.open-button {
+		bottom: 20px;
+		padding: 12px 24px;
+		background: #28a745;
+		border: none;
+		border-radius: 8px;
+		color: white;
+		font-size: 14px;
+		font-weight: 600;
+		cursor: pointer;
+		z-index: 1000;
+		box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+		transition: background 0.2s, transform 0.1s;
+	}
+
+	.open-button {
+		left: 20px;
+	}
+
+
+		.open-button:hover {
+			background: #218838;
+		}
+
+		.open-button:active {
+			transform: scale(0.98);
+		}
+
+</style>
+
+
+@code {
+	private BugViewer? viewer;
+
+	private async Task OpenFile(MouseEventArgs args)
+	{
+		string filename = "";
+		//add a file picker here
+
+		IO.Open(filename, out TessellatedSolid ts);
+		MeshData meshData;
+		meshData = new MeshData
+		{
+			ColorMode = ts.HasUniformColor ? MeshColoring.UniformColor : MeshColoring.PerTriangle,
+			Id = Path.GetFileName(filename),
+			Colors = ts.HasUniformColor ? [ConvertFromTVGLColor(ts.SolidColor)]
+			: ts.Faces.Select(f => ConvertFromTVGLColor(f.Color)),
+			Indices = ts.Faces.Select(f => (f.A.IndexInList, f.B.IndexInList, f.C.IndexInList)),
+			Vertices = ts.Vertices.Select(v => new System.Numerics.Vector3((float)v.X, (float)v.Y, (float)v.Z))
+		};
+		// Add to WebGPU scene
+		await viewer.AddMeshAsync(meshData);
+	}
+
+	private static System.Drawing.Color ConvertFromTVGLColor(TVGL.Color c)
+	   => System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B);
+}

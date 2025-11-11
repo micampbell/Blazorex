@@ -11,8 +11,8 @@
 <button class="add-wire-button" @onclick="AddWire">
 	➕ Add Wire
 </button>
-<BugViewer.BugViewer @ref="vizor" />
-@* <BugViewer.BugViewer Width="800" Height="800" @ref="vizor" /> *@
+<BugViewer @ref="viewer" />
+@* <BugViewer.BugViewer Width="800" Height="800" @ref="viewer" /> *@
 
 <style>
 	.add-cube-button, .add-wire-button {
@@ -51,7 +51,7 @@
 
 
 @code {
-	private BugViewer? vizor;
+	private BugViewer? viewer;
 
 	private async Task AddCube(MouseEventArgs args)
 	{
@@ -148,12 +148,12 @@
 
 
 		// Add to WebGPU scene
-		await vizor.AddMeshAsync(cube);
+		await viewer.AddMeshAsync(cube);
 	}
 
 	private async Task AddWire(MouseEventArgs args)
 	{
-		if (vizor is null) return;
+		if (viewer is null) return;
 
 		// Random position and size for variety
 		var random = Random.Shared;
@@ -170,6 +170,6 @@
 		);
 
 		// Add to WebGPU scene
-		await vizor.AddLinesAsync(wire);
+		await viewer.AddLinesAsync(wire);
 	}
 }
