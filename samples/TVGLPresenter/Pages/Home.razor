@@ -8,7 +8,7 @@
 <PageTitle>Home</PageTitle>
 <InputFile OnChange="OpenFile" />
 <BugViewer @ref="viewer" />
-<LogViewer @ref="logViewer"  />
+<LogViewer @ref="logViewer" />
 
 @code {
 	private BugViewer? viewer;
@@ -26,8 +26,7 @@
 		var fileArgs = args.GetMultipleFiles(1)[0];
 		string filename = fileArgs.Name;
 		logViewer.LogInformation($"Loaded polygon from {filename}");
-		TVGL.Global.Logger.LogInformation("whaletakt");
-		
+
 		// Buffer the file into a MemoryStream to allow synchronous reads.
 		await using var memoryStream = new MemoryStream();
 		// The OpenReadStream provides a stream that must be read asynchronously.
@@ -37,9 +36,19 @@
 		}
 		// Reset the position to the beginning of the stream.
 		memoryStream.Position = 0;
-
-		IO.Open(memoryStream, filename, out TessellatedSolid[] tss);
-		var ts = tss[0];
+		TessellatedSolid[] solids = null;
+		try
+		{
+			IO.Open(memoryStream, filename, out solids);
+		}
+		catch (Exception ex)
+		{ logViewer.LogError(ex, "opening file with TVGL"); }
+		if (solids == null || solids.Length == 0)
+		{
+			logViewer.LogError("Unable to load file.");
+			return;
+		}
+		var ts = solids[0];
 		MeshData meshData;
 		meshData = new MeshData
 		{
@@ -48,12 +57,16 @@
 			Colors = ts.HasUniformColor ? [ConvertFromTVGLColor(ts.SolidColor)]
 			: ts.Faces.Select(f => ConvertFromTVGLColor(f.Color)),
 			Indices = ts.Faces.Select(f => (f.A.IndexInList, f.B.IndexInList, f.C.IndexInList)),
-			Vertices = ts.Vertices.Select(v => new System.Numerics.Vector3((float)v.X/100f, (float)v.Y/100f, (float)v.Z/100f))
+			Vertices = ts.Vertices.Select(v => new System.Numerics.Vector3((float)v.X, (float)v.Y, (float)v.Z))
 		};
 		// Add to WebGPU scene
 		await viewer.AddMeshAsync(meshData);
 	}
 
 	private static System.Drawing.Color ConvertFromTVGLColor(TVGL.Color c)
-				=> System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B);
+	{
+		if (c == null)
+			c = new TVGL.Color(TVGL.Constants.DefaultColor);
+		return System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B);
+	}
 }
