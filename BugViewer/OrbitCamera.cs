@@ -23,8 +23,11 @@ public struct Ray
 /// </summary>
 public class OrbitCamera
 {
-    internal OrbitCamera(Vector3 target)
+    private readonly BugViewerOptions _options;
+
+    internal OrbitCamera(Vector3 target, BugViewerOptions options)
     {
+        _options = options;
         Target = target;
         AzimuthAngle = Math.PI / 4; // Default to 45° for better initial view
         polarAngle = Math.PI / 6; // Default to 30° for better initial view
@@ -38,7 +41,7 @@ public class OrbitCamera
         get => polarAngle;
         set
         {
-            polarAngle = ConstrainPolar ? Math.Clamp(value, MinPolar, MaxPolar) : value;
+            polarAngle = _options.ConstrainPolar ? Math.Clamp(value, _options.MinPolar, _options.MaxPolar) : value;
             updateCamera = true;
         }
     }
@@ -53,9 +56,9 @@ public class OrbitCamera
         set
         {
             var newValue = value;
-            if (ConstrainAzimuth)
+            if (_options.ConstrainAzimuth)
             {
-                newValue = Math.Clamp(value, MinAzimuth, MaxAzimuth);
+                newValue = Math.Clamp(value, _options.MinAzimuth, _options.MaxAzimuth);
             }
             else
             {
@@ -78,7 +81,7 @@ public class OrbitCamera
         get => distance;
         set
         {
-            distance = ConstrainDistance ? Math.Clamp(value, MinDistance, MaxDistance) : value;
+            distance = _options.ConstrainDistance ? Math.Clamp(value, _options.MinDistance, _options.MaxDistance) : value;
             updateCamera = true;
         }
     }
@@ -100,49 +103,6 @@ public class OrbitCamera
     }
     private Vector3 target = Vector3.Zero;
 
-    // Orbit constraints
-    public double MaxPolar { get; set; } = Math.PI * 0.49; // Slightly less than 90° to avoid gimbal lock
-    public double MinPolar { get; set; } = -Math.PI * 0.49;
-    public double MaxAzimuth { get; set; } = Math.PI;
-    public double MinAzimuth { get; set; } = -Math.PI;
-    public bool ConstrainPolar { get; set; } = true;
-    public bool ConstrainAzimuth { get; set; } = false;
-
-    // Distance constraints
-    public double MaxDistance { get; set; } = 50.0;
-    public double MinDistance { get; set; } = 0.5;
-    public bool ConstrainDistance { get; set; } = true;
-
-    // Sensitivity settings
-    public double OrbitSensitivity { get; set; } = 0.003;
-    public double ZoomSensitivity { get; set; } = 0.001; // Increased for better zoom response
-    public double PanSensitivity { get; set; } = 0.007;
-    public double PanSpeedMultiplier { get; set; } = 3.0; // Multiplier when Shift is held
-
-    /// <summary>
-    /// Camera projection type (Perspective or Orthographic).
-    /// </summary>
-    public ProjectionType ProjectionType { get; set; } = ProjectionType.Perspective;
-
-    /// <summary>
-    /// Field of view in radians (used for Perspective projection).
-    /// </summary>
-    public double Fov { get; set; } = Math.PI * 0.5;
-
-    /// <summary>
-    /// Half-height of view in world units (used for Orthographic projection).
-    /// </summary>
-    public double OrthoSize { get; set; } = 5.0;
-
-    /// <summary>
-    /// Near clipping plane distance.
-    /// </summary>
-    public double ZNear { get; set; } = 0.01;
-
-    /// <summary>
-    /// Far clipping plane distance.
-    /// </summary>
-    public double ZFar { get; set; } = 128.0;
     #endregion
 
     #region Controlling the Orbit (with mouse or keys)
@@ -153,8 +113,8 @@ public class OrbitCamera
     /// <param name="deltaY">Vertical movement in pixels</param>
     public void Orbit(double azimuth, double polar)
     {
-        AzimuthAngle += azimuth * OrbitSensitivity;
-        PolarAngle += polar * OrbitSensitivity;
+        AzimuthAngle += azimuth * _options.OrbitSensitivity;
+        PolarAngle += polar * _options.OrbitSensitivity;
     }
 
     /// <summary>
@@ -164,7 +124,7 @@ public class OrbitCamera
     public void Zoom(double wheelDelta)
     {
         // Use exponential zoom for more natural feel
-        var zoomFactor = 1.0 + (wheelDelta * ZoomSensitivity);
+        var zoomFactor = 1.0 + (wheelDelta * _options.ZoomSensitivity);
         Distance *= zoomFactor;
     }
 
@@ -177,7 +137,7 @@ public class OrbitCamera
     public void PanWithMouse(double deltaX, double deltaY, bool shiftPressed = false)
     {
         // Calculate pan speed based on distance (closer = slower pan)
-        var panSpeed = PanSensitivity * Distance * (shiftPressed ? PanSpeedMultiplier : 1.0);
+        var panSpeed = _options.PanSensitivity * Distance * (shiftPressed ? _options.PanSpeedMultiplier : 1.0);
         var camMatrix = CameraMatrix;
         var right = new Vector3(camMatrix.M11, camMatrix.M12, camMatrix.M13);
         var up = new Vector3(camMatrix.M21, camMatrix.M22, camMatrix.M23);
@@ -197,7 +157,7 @@ public class OrbitCamera
     /// <param name="shiftPressed">Whether Shift key is pressed for faster movement</param>
     public void PanWithKeyboard(double forward, double right, double up, bool shiftPressed = false)
     {
-        var panSpeed = PanSensitivity * Distance * (shiftPressed ? PanSpeedMultiplier : 1.0);
+        var panSpeed = _options.PanSensitivity * Distance * (shiftPressed ? _options.PanSpeedMultiplier : 1.0);
         var camMatrix = CameraMatrix;
         var rightVec = new Vector3(camMatrix.M11, camMatrix.M12, camMatrix.M13);
         var upVec = new Vector3(camMatrix.M21, camMatrix.M22, camMatrix.M23);
@@ -342,13 +302,13 @@ public class OrbitCamera
     {
         float aspectRatio = (float)(screenWidth / screenHeight);
 
-        if (ProjectionType == ProjectionType.Orthographic)
+        if (_options.ProjectionType == ProjectionType.Orthographic)
         {
-            return Matrix4x4.CreateOrthographic((float)OrthoSize * 2 * aspectRatio, (float)OrthoSize * 2, (float)ZNear, (float)ZFar);
+            return Matrix4x4.CreateOrthographic((float)_options.OrthoSize * 2 * aspectRatio, (float)_options.OrthoSize * 2, (float)_options.ZNear, (float)_options.ZFar);
         }
         else
         {
-            return Matrix4x4.CreatePerspectiveFieldOfView((float)Fov, aspectRatio, (float)ZNear, (float)ZFar);
+            return Matrix4x4.CreatePerspectiveFieldOfView((float)_options.Fov, aspectRatio, (float)_options.ZNear, (float)_options.ZFar);
         }
     }
     #endregion

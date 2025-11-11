@@ -94,6 +94,62 @@ public class BugViewerOptions : INotifyPropertyChanged
     /// <summary>Far clipping plane distance.</summary>
     public double ZFar { get => _zFar; set { _zFar = value; OnPropertyChanged(); } }
 
+    // Orbit constraints
+    private double _maxPolar = Math.PI * 0.49;
+    /// <summary>Maximum polar angle in radians (slightly less than 90° to avoid gimbal lock).</summary>
+    public double MaxPolar { get => _maxPolar; set { _maxPolar = value; OnPropertyChanged(); } }
+
+    private double _minPolar = -Math.PI * 0.49;
+    /// <summary>Minimum polar angle in radians.</summary>
+    public double MinPolar { get => _minPolar; set { _minPolar = value; OnPropertyChanged(); } }
+
+    private double _maxAzimuth = Math.PI;
+    /// <summary>Maximum azimuth angle in radians.</summary>
+    public double MaxAzimuth { get => _maxAzimuth; set { _maxAzimuth = value; OnPropertyChanged(); } }
+
+    private double _minAzimuth = -Math.PI;
+    /// <summary>Minimum azimuth angle in radians.</summary>
+    public double MinAzimuth { get => _minAzimuth; set { _minAzimuth = value; OnPropertyChanged(); } }
+
+    private bool _constrainPolar = true;
+    /// <summary>Whether to constrain the polar angle.</summary>
+    public bool ConstrainPolar { get => _constrainPolar; set { _constrainPolar = value; OnPropertyChanged(); } }
+
+    private bool _constrainAzimuth = false;
+    /// <summary>Whether to constrain the azimuth angle.</summary>
+    public bool ConstrainAzimuth { get => _constrainAzimuth; set { _constrainAzimuth = value; OnPropertyChanged(); } }
+
+    // Distance constraints
+    private double _maxDistance = 50.0;
+    /// <summary>Maximum camera distance from the target.</summary>
+    public double MaxDistance { get => _maxDistance; set { _maxDistance = value; OnPropertyChanged(); } }
+
+    private double _minDistance = 0.5;
+    /// <summary>Minimum camera distance from the target.</summary>
+    public double MinDistance { get => _minDistance; set { _minDistance = value; OnPropertyChanged(); } }
+
+    private bool _constrainDistance = true;
+    /// <summary>Whether to constrain the camera distance.</summary>
+    public bool ConstrainDistance { get => _constrainDistance; set { _constrainDistance = value; OnPropertyChanged(); } }
+
+    // Sensitivity settings
+    private double _orbitSensitivity = 0.003;
+    /// <summary>Sensitivity for orbit (rotation) controls.</summary>
+    public double OrbitSensitivity { get => _orbitSensitivity; set { _orbitSensitivity = value; OnPropertyChanged(); } }
+
+    private double _zoomSensitivity = 0.001;
+    /// <summary>Sensitivity for zoom controls (increased for better zoom response).</summary>
+    public double ZoomSensitivity { get => _zoomSensitivity; set { _zoomSensitivity = value; OnPropertyChanged(); } }
+
+    private double _panSensitivity = 0.007;
+    /// <summary>Sensitivity for pan controls.</summary>
+    public double PanSensitivity { get => _panSensitivity; set { _panSensitivity = value; OnPropertyChanged(); } }
+
+    private double _panSpeedMultiplier = 3.0;
+    /// <summary>Multiplier for pan speed when Shift is held.</summary>
+    public double PanSpeedMultiplier { get => _panSpeedMultiplier; set { _panSpeedMultiplier = value; OnPropertyChanged(); } }
+
+
     /// <summary>
     /// Converts this options object to a JS-friendly format with colors normalized to 0-1 floats.
     /// </summary>

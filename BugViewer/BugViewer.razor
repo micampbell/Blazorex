@@ -226,7 +226,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	/// Camera instance for controlling the 3D view.
 	/// </summary>
 	[Parameter]
-	public OrbitCamera? Camera { get; set; } = new OrbitCamera(Vector3.Zero);
+	public OrbitCamera? Camera { get; set; } = new OrbitCamera(Vector3.Zero, BugViewerOptions.Default);
 
 	/// <summary>
 	/// Event raised when a picking ray is created (e.g., on double-click).
