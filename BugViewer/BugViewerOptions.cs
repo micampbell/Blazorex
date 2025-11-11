@@ -22,6 +22,9 @@ public enum ProjectionType
 /// </summary>
 public class BugViewerOptions : INotifyPropertyChanged
 {
+    /// <summary>
+    /// Event raised when a property value changes.
+    /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -46,12 +49,15 @@ public class BugViewerOptions : INotifyPropertyChanged
     };
 
     private Color _clearColor;
+    /// <summary>Background clear color for the rendering canvas.</summary>
     public Color ClearColor { get => _clearColor; set { _clearColor = value; OnPropertyChanged(); } }
 
     private Color _lineColor;
+    /// <summary>Color of grid lines.</summary>
     public Color LineColor { get => _lineColor; set { _lineColor = value; OnPropertyChanged(); } }
 
     private Color _baseColor;
+    /// <summary>Base/background color of the grid.</summary>
     public Color BaseColor { get => _baseColor; set { _baseColor = value; OnPropertyChanged(); } }
 
     private double _lineWidthX;
@@ -72,6 +78,7 @@ public class BugViewerOptions : INotifyPropertyChanged
     }
 
     private int _sampleCount;
+    /// <summary>Multi-Sample Anti-Aliasing (MSAA) sample count for smoother rendering.</summary>
     public int SampleCount { get => _sampleCount; set { _sampleCount = value; OnPropertyChanged(); } }
 
     private ProjectionType _projectionType;

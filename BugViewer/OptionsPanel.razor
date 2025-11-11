@@ -1,517 +1,453 @@
 ﻿@using System.Drawing
 @using Bit.BlazorUI
 
-<div class="webgpu-settings-panel @(IsExpanded ? "expanded" : "collapsed")">
-    <button class="toggle-button" @onclick="ToggleExpanded">
-        <span class="icon">@(IsExpanded ? "⚙️ WebGPU Settings" : "⚙️")</span>
-        
-    </button>
+<div class="options-panel-container @(IsExpanded ? "expanded" : "collapsed")">
+	<BitButton OnClick="ToggleExpanded"
+			   Variant="BitVariant.Text"
+			   Class="toggle-btn">
+		@(IsExpanded ? "⚙️ Viewer Settings ▼" : "⚙️")
+	</BitButton>
 
-    @if (IsExpanded)
-    {
-        <div class="settings-content">
-            <div class="setting-group">
-                <h3>Colors</h3>
-                
-                <div class="setting-item">
-                    <label>Sky Color</label>
-                    <div class="color-inputs">
-                        <input type="range" min="0" max="255" step="1" value="@Options.ClearColor.R" 
-                               @oninput="@(e => UpdateClearColor(r: ParseInt(e.Value)))" />
-                        <input type="range" min="0" max="255" step="1" value="@Options.ClearColor.G" 
-                               @oninput="@(e => UpdateClearColor(g: ParseInt(e.Value)))" />
-                        <input type="range" min="0" max="255" step="1" value="@Options.ClearColor.B" 
-                               @oninput="@(e => UpdateClearColor(b: ParseInt(e.Value)))" />
-                        <input type="range" min="0" max="255" step="1" value="@Options.ClearColor.A" 
-                               @oninput="@(e => UpdateClearColor(a: ParseInt(e.Value)))" />
-                    </div>
-                    <div class="color-preview" style="background: rgba(@RgbaToCss(Options.ClearColor));"></div>
-                </div>
+	@if (IsExpanded)
+	{
+		<div class="options-content">
+			<BitAccordion Title="Lighting">
+				<BitGrid Columns="3">
+					<BitGridItem><BitLabel>Clear Color (Sky)</BitLabel></BitGridItem>
+					<BitGridItem>
+						<BitColorPicker @bind-Value="_clearColorHex"
+										OnChange="@(() => UpdateClearColorFromPicker())"
+										ShowAlphaSlider="true"
+										ShowPreview="true" />
+					</BitGridItem>
+					<BitGridItem>
+					</BitGridItem>
+				</BitGrid>
+			</BitAccordion>
+			<BitAccordion Title="📐 Grid">
+				<BitStack>
+					<BitLabel>Line Width X: @Options.LineWidthX.ToString("F3")</BitLabel>
+					<BitSlider @bind-Value="Options.LineWidthX"
+							   Min="0" Max="1" Step="0.01" />
+					<BitLabel>Line Width Y: @Options.LineWidthY.ToString("F3")</BitLabel>
+					<BitSlider @bind-Value="Options.LineWidthY"
+							   Min="0" Max="1" Step="0.01" />
+					<BitLabel>Grid Line Color</BitLabel>
+					<BitColorPicker @bind-Value="_lineColorHex"
+									OnChange="@(() => UpdateLineColorFromPicker())"
+									ShowAlphaSlider="true"
+									ShowPreview="true" />
+					<BitLabel>Grid Base Color</BitLabel>
+					<BitColorPicker @bind-Value="_baseColorHex"
+									OnChange="@(() => UpdateBaseColorFromPicker())"
+									ShowAlphaSlider="true"
+									ShowPreview="true" />
 
-                <div class="setting-item">
-                    <label>Line Color</label>
-                    <div class="color-inputs">
-                        <input type="range" min="0" max="255" step="1" value="@Options.LineColor.R"
-                               @oninput="@(e => UpdateLineColor(r: ParseInt(e.Value)))" />
-                        <input type="range" min="0" max="255" step="1" value="@Options.LineColor.G"
-                               @oninput="@(e => UpdateLineColor(g: ParseInt(e.Value)))" />
-                        <input type="range" min="0" max="255" step="1" value="@Options.LineColor.B"
-                               @oninput="@(e => UpdateLineColor(b: ParseInt(e.Value)))" />
-                        <input type="range" min="0" max="255" step="1" value="@Options.LineColor.A"
-                               @oninput="@(e => UpdateLineColor(a: ParseInt(e.Value)))" />
-                    </div>
-                    <div class="color-preview" style="background: rgba(@RgbaToCss(Options.LineColor));"></div>
-                </div>
+				</BitStack>
+			</BitAccordion>
+			<BitAccordion Title="📷 Camera">
+				<BitStack>
+					<BitLabel>Projection Type</BitLabel>
+					<BitDropdown @bind-Value="Options.ProjectionType"
+								 Items="_projectionTypeItems"
+								 Placeholder="Select projection type" />
 
-                <div class="setting-item">
-                    <label>Base Color</label>
-                    <div class="color-inputs">
-                        <input type="range" min="0" max="255" step="1" value="@Options.BaseColor.R"
-                               @oninput="@(e => UpdateBaseColor(r: ParseInt(e.Value)))" />
-                        <input type="range" min="0" max="255" step="1" value="@Options.BaseColor.G"
-                               @oninput="@(e => UpdateBaseColor(g: ParseInt(e.Value)))" />
-                        <input type="range" min="0" max="255" step="1" value="@Options.BaseColor.B"
-                               @oninput="@(e => UpdateBaseColor(b: ParseInt(e.Value)))" />
-                        <input type="range" min="0" max="255" step="1" value="@Options.BaseColor.A"
-                               @oninput="@(e => UpdateBaseColor(a: ParseInt(e.Value)))" />
-                    </div>
-                    <div class="color-preview" style="background: rgba(@RgbaToCss(Options.BaseColor));"></div>
-                </div>
-            </div>
+					@if (Options.ProjectionType == ProjectionType.Perspective)
+					{
+						<BitLabel>Field of View: @((Options.Fov * 180 / Math.PI).ToString("F0"))°</BitLabel>
+						<BitSlider @bind-Value="Options.Fov"
+								   Min="@(Math.PI * 0.2)" Max="@(Math.PI * 0.9)" Step="0.01" />
+						<BitText Variant="BitTextVariant.Caption" Color="BitColor.SecondaryForeground">
+							Controls perspective distortion
+						</BitText>
+					}
+					else
+					{
+						<BitLabel>Orthographic Size: @Options.OrthoSize.ToString("F2")</BitLabel>
+						<BitSlider @bind-Value="Options.OrthoSize"
+								   Min="1" Max="20" Step="0.1" />
+						<BitText Variant="BitTextVariant.Caption" Color="BitColor.SecondaryForeground">
+							Half-height of visible area
+						</BitText>
+					}
 
-            <div class="setting-group">
-                <h3>Grid</h3>
-                
-                <div class="setting-item">
-                    <label>Line Width X: @Options.LineWidthX.ToString("F2")</label>
-                    <input type="range" min="0" max="1" step="0.01" value="@Options.LineWidthX" 
-                           @oninput="@(e => UpdateLineWidthX(ParseDouble(e.Value)))" />
-                </div>
+					<BitLabel>Near Clipping Plane: @Options.ZNear.ToString("F3")</BitLabel>
+					<BitSlider @bind-Value="Options.ZNear"
+							   Min="0.001" Max="1" Step="0.001" />
 
-                <div class="setting-item">
-                    <label>Line Width Y: @Options.LineWidthY.ToString("F2")</label>
-                    <input type="range" min="0" max="1" step="0.01" value="@Options.LineWidthY" 
-                           @oninput="@(e => UpdateLineWidthY(ParseDouble(e.Value)))" />
-                </div>
-            </div>
+					<BitLabel>Far Clipping Plane: @Options.ZFar.ToString("F0")</BitLabel>
+					<BitSlider @bind-Value="Options.ZFar"
+							   Min="10" Max="500" Step="1" />
 
-            <div class="setting-group">
-                <h3>Camera</h3>
-                
-                <div class="setting-item">
-                    <label title="Perspective: realistic with vanishing points. Orthographic: parallel projection for technical drawings.">
-                        Projection Type
-                        <span class="info-icon" title="Perspective for realism, Orthographic for CAD/engineering.">?</span>
-                    </label>
-                    <select value="@((int)Options.ProjectionType)" @onchange="HandleProjectionTypeChange">
-                        <option value="0">Perspective (Realistic)</option>
-                        <option value="1">Orthographic (CAD/Technical)</option>
-                    </select>
-                </div>
+					<!-- Camera Controls Section -->
+					<BitText Variant="BitTextVariant.H6">Orbit Constraints</BitText>
+					<BitCheckbox @bind-Value="Options.ConstrainPolar" Label="Constrain Polar Angle" />
 
-                @if (Options.ProjectionType == ProjectionType.Perspective)
-                {
-                    <div class="setting-item">
-                        <label title="Controls perspective distortion. Lower values = narrower view (more zoom), higher = wider view.">
-                            Field of View: @(Options.Fov * 180 / Math.PI).ToString("F0")°
-                        </label>
-                        <input type="range" min="@(Math.PI * 0.2)" max="@(Math.PI * 0.9)" step="0.01" value="@Options.Fov" 
-                               @oninput="@(e => UpdateFov(ParseDouble(e.Value)))" />
-                    </div>
-                }
-                else
-                {
-                    <div class="setting-item">
-                        <label title="Half-height of visible area in world units. Lower = more zoom, higher = wider view.">
-                            Orthographic Size: @Options.OrthoSize.ToString("F1")
-                        </label>
-                        <input type="range" min="1" max="20" step="0.1" value="@Options.OrthoSize" 
-                               @oninput="@(e => UpdateOrthoSize(ParseDouble(e.Value)))" />
-                    </div>
-                }
+					@if (Options.ConstrainPolar)
+					{
+						<BitLabel>Max Polar Angle: @((Options.MaxPolar * 180 / Math.PI).ToString("F0"))°</BitLabel>
+						<BitSlider @bind-Value="Options.MaxPolar"
+								   Min="0" Max="@(Math.PI * 0.5)" Step="0.01" />
+						<BitLabel>Min Polar Angle: @((Options.MinPolar * 180 / Math.PI).ToString("F0"))°</BitLabel>
+						<BitSlider @bind-Value="Options.MinPolar"
+								   Min="@(-Math.PI * 0.5)" Max="0" Step="0.01" />
+					}
 
-                <div class="setting-item">
-                    <label>Near Plane: @Options.ZNear.ToString("F2")</label>
-                    <input type="range" min="0.001" max="1" step="0.001" value="@Options.ZNear" 
-                           @oninput="@(e => UpdateZNear(ParseDouble(e.Value)))" />
-                </div>
+					<BitCheckbox @bind-Value="Options.ConstrainAzimuth" Label="Constrain Azimuth Angle" />
 
-                <div class="setting-item">
-                    <label>Far Plane: @Options.ZFar.ToString("F0")</label>
-                    <input type="range" min="10" max="500" step="1" value="@Options.ZFar" 
-                           @oninput="@(e => UpdateZFar(ParseDouble(e.Value)))" />
-                </div>
-            </div>
+					@if (Options.ConstrainAzimuth)
+					{
+						<BitLabel>Max Azimuth Angle: @((Options.MaxAzimuth * 180 / Math.PI).ToString("F0"))°</BitLabel>
+						<BitSlider @bind-Value="Options.MaxAzimuth"
+								   Min="@(-Math.PI)" Max="@Math.PI" Step="0.01" />
+						<BitLabel>Min Azimuth Angle: @((Options.MinAzimuth * 180 / Math.PI).ToString("F0"))°</BitLabel>
+						<BitSlider @bind-Value="Options.MinAzimuth"
+								   Min="@(-Math.PI)" Max="@Math.PI" Step="0.01" />
+					}
 
-            <div class="setting-group">
-                <h3>Rendering</h3>
-                
-                <div class="setting-item">
-                    <label title="Multi-Sample Anti-Aliasing: Smooths jagged edges on grid lines. Higher = smoother but more GPU intensive.">
-                        MSAA Sample Count 
-                        <span class="info-icon" title="Smooths jagged edges. Requires page refresh to apply.">?</span>
-                    </label>
-                    <select value="@Options.SampleCount" @onchange="HandleSampleCountChange">
-                        <option value="1">1x - No anti-aliasing (fastest)</option>
-                        <option value="2">2x - Slight smoothing</option>
-                        <option value="4">4x - Smooth (recommended)</option>
-                        <option value="8">8x - Very smooth (slower)</option>
-                    </select>
-                    <small class="setting-note">?? Requires page refresh to take effect</small>
-                </div>
-            </div>
+					<!-- Distance Constraints -->
+					<BitText Variant="BitTextVariant.H6">Distance Constraints</BitText>
+					<BitCheckbox @bind-Value="Options.ConstrainDistance" Label="Constrain Distance" />
 
-            @if (_showMsaaRefreshPrompt)
-            {
-                <div class="refresh-prompt">
-                    <p>?? MSAA setting changed</p>
-                    <button @onclick="RefreshPage" class="refresh-button">Refresh Page Now</button>
-                </div>
-            }
+					@if (Options.ConstrainDistance)
+					{
+						<BitLabel>Max Distance: @Options.MaxDistance.ToString("F1")</BitLabel>
+						<BitSlider @bind-Value="Options.MaxDistance"
+								   Min="1" Max="100" Step="0.5" />
+						<BitLabel>Min Distance: @Options.MinDistance.ToString("F2")</BitLabel>
+						<BitSlider @bind-Value="Options.MinDistance"
+								   Min="0.1" Max="10" Step="0.1" />
+					}
 
-            <div class="setting-actions">
-                <button @onclick="ResetToDefaults">Reset to Defaults</button>
-            </div>
-        </div>
-    }
+					<!-- Sensitivity Settings -->
+					<BitText Variant="BitTextVariant.H6">Sensitivity Settings</BitText>
+					<BitLabel>Orbit Sensitivity: @Options.OrbitSensitivity.ToString("F4")</BitLabel>
+					<BitSlider @bind-Value="Options.OrbitSensitivity"
+							   Min="0.001" Max="0.01" Step="0.0001" />
+					<BitLabel>Zoom Sensitivity: @Options.ZoomSensitivity.ToString("F4")</BitLabel>
+					<BitSlider @bind-Value="Options.ZoomSensitivity"
+							   Min="0.0001" Max="0.005" Step="0.0001" />
+					<BitLabel>Pan Sensitivity: @Options.PanSensitivity.ToString("F4")</BitLabel>
+					<BitSlider @bind-Value="Options.PanSensitivity"
+							   Min="0.001" Max="0.02" Step="0.001" />
+					<BitLabel>Pan Speed Multiplier (Shift): @Options.PanSpeedMultiplier.ToString("F1")</BitLabel>
+					<BitSlider @bind-Value="Options.PanSpeedMultiplier"
+							   Min="1" Max="10" Step="0.5" />
+		</BitStack>
+		</BitAccordion>
+		<!-- Rendering Section -->
+		<BitAccordion Title="🎬 Rendering" >
+			<BitStack>
+					<BitLabel>MSAA Sample Count</BitLabel>
+					<BitDropdown @bind-Value="Options.SampleCount"
+								 Items="_sampleCountItems"
+								 Placeholder="Select sample count" />
+					<BitText Variant="BitTextVariant.Caption" Color="BitColor.Warning">
+						⚠️ Requires page refresh to take effect
+					</BitText>
+
+				@if (_showMsaaRefreshPrompt)
+				{
+					<div class="refresh-prompt">
+						<BitText Variant="BitTextVariant.Body1" Color="BitColor.Warning">
+							MSAA setting changed
+						</BitText>
+						<BitButton OnClick="RefreshPage"
+								   Color="BitColor.Warning"
+								   Variant="BitVariant.Fill"
+								   Class="refresh-btn">
+							Refresh Page Now
+						</BitButton>
+					</div>
+				}
+		<BitButton OnClick="ResetToDefaults"
+				   Variant="BitVariant.Outline"
+				   FullWidth="true">
+			Reset to Defaults
+		</BitButton>
+		</BitStack>
+		</BitAccordion>
+
+	</div>
+	}
 </div>
 
 <style>
-    .webgpu-settings-panel {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        background: rgba(40, 40, 40, 0.95);
-        border: 1px solid #555;
-        border-radius: 8px;
-        color: #eee;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-size: 14px;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        max-height: 90vh;
-        overflow-y: auto;
-    }
+	.options-panel-container {
+		position: absolute;
+		top: 20px;
+		right: 20px;
+		background: rgba(30, 30, 30, 0.95);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		border-radius: 12px;
+		backdrop-filter: blur(10px);
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+		z-index: 1000;
+		max-height: 90vh;
+		overflow: hidden;
+		transition: width 0.3s ease;
+	}
 
-    .webgpu-settings-panel.collapsed {
-        width: auto;
-    }
+		.options-panel-container.collapsed {
+			width: auto;
+		}
 
-    .webgpu-settings-panel.expanded {
-        width: 320px;
-    }
+		.options-panel-container.expanded {
+			width: 700px;
+		}
 
-    .toggle-button {
-        width: 100%;
-        padding: 12px 16px;
-        background: transparent;
-        border: none;
-        color: #eee;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        text-align: left;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
+	.toggle-btn {
+		width: 100%;
+		text-align: left;
+		font-weight: 600;
+		padding: 12px 16px;
+	}
 
-    .toggle-button:hover {
-        background: rgba(255,255,255,0.1);
-    }
+	.options-content {
+		padding: 0 16px 16px;
+		max-height: calc(90vh - 60px);
+		overflow-y: auto;
+	}
 
-    .toggle-button .icon {
-        font-size: 10px;
-        transition: transform 0.2s;
-    }
+	.section-content {
+		padding: 12px 0;
+	}
 
-    .settings-content {
-        padding: 0 16px 16px;
-    }
+	.setting-item {
+		margin-bottom: 20px;
+	}
 
-    .setting-group {
-        margin-bottom: 20px;
-    }
+	.subsection {
+		margin-top: 20px;
+		padding-top: 16px;
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
+	}
 
-    .setting-group h3 {
-        margin: 0 0 12px 0;
-        font-size: 13px;
-        color: #aaa;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 1px solid #555;
-        padding-bottom: 6px;
-    }
+		.subsection:first-child {
+			margin-top: 0;
+			padding-top: 0;
+			border-top: none;
+		}
 
-    .setting-item {
-        margin-bottom: 16px;
-    }
+	.color-group {
+		margin-bottom: 24px;
+		padding: 12px;
+		background: rgba(255, 255, 255, 0.03);
+		border-radius: 8px;
+	}
 
-    .setting-item label {
-        display: block;
-        margin-bottom: 6px;
-        font-size: 12px;
-        color: #ccc;
-        cursor: help;
-    }
+	.colors-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 16px;
+		padding: 8px 0;
+	}
 
-    .info-icon {
-        display: inline-block;
-        width: 14px;
-        height: 14px;
-        line-height: 14px;
-        text-align: center;
-        font-size: 11px;
-        color: #0d6efd;
-        cursor: help;
-        margin-left: 4px;
-    }
+	.color-picker-item {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
 
-    .setting-note {
-        display: block;
-        margin-top: 4px;
-        font-size: 10px;
-        color: #ffc107;
-        font-style: italic;
-    }
+	.color-channels {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 12px;
+		margin: 12px 0;
+	}
 
-    .setting-item input[type="range"] {
-        width: 100%;
-        height: 4px;
-        background: #555;
-        border-radius: 2px;
-        outline: none;
-        -webkit-appearance: none;
-    }
+	.action-buttons {
+		margin-top: 20px;
+		padding-top: 16px;
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
+	}
 
-    .setting-item input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 14px;
-        height: 14px;
-        background: #0d6efd;
-        cursor: pointer;
-        border-radius: 50%;
-    }
+	.refresh-prompt {
+		margin-top: 16px;
+		padding: 12px;
+		background: rgba(255, 193, 7, 0.15);
+		border: 1px solid #ffc107;
+		border-radius: 8px;
+		text-align: center;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
 
-    .setting-item input[type="range"]::-moz-range-thumb {
-        width: 14px;
-        height: 14px;
-        background: #0d6efd;
-        cursor: pointer;
-        border-radius: 50%;
-        border: none;
-    }
+	.refresh-btn {
+		margin-top: 8px;
+	}
 
-    .setting-item select {
-        width: 100%;
-        padding: 6px 8px;
-        background: #333;
-        border: 1px solid #555;
-        border-radius: 4px;
-        color: #eee;
-        font-size: 12px;
-    }
+	/* Custom scrollbar */
+	.options-content::-webkit-scrollbar {
+		width: 8px;
+	}
 
-    .color-inputs {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 6px;
-        margin-bottom: 8px;
-    }
+	.options-content::-webkit-scrollbar-track {
+		background: rgba(255, 255, 255, 0.05);
+		border-radius: 4px;
+	}
 
-    .color-preview {
-        width: 100%;
-        height: 24px;
-        border-radius: 4px;
-        border: 1px solid #666;
-    }
+	.options-content::-webkit-scrollbar-thumb {
+		background: rgba(255, 255, 255, 0.2);
+		border-radius: 4px;
+	}
 
-    .setting-actions {
-        margin-top: 16px;
-        padding-top: 16px;
-        border-top: 1px solid #555;
-    }
-
-    .setting-actions button {
-        width: 100%;
-        padding: 8px;
-        background: #0d6efd;
-        border: none;
-        border-radius: 4px;
-        color: white;
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    .setting-actions button:hover {
-        background: #0b5ed7;
-    }
-
-    .refresh-prompt {
-        margin: 16px 0;
-        padding: 12px;
-        background: rgba(255, 193, 7, 0.15);
-        border: 1px solid #ffc107;
-        border-radius: 4px;
-        text-align: center;
-    }
-
-    .refresh-prompt p {
-        margin: 0 0 8px 0;
-        font-size: 12px;
-        color: #ffc107;
-        font-weight: 600;
-    }
-
-    .refresh-button {
-        padding: 6px 16px;
-        background: #ffc107;
-        border: none;
-        border-radius: 4px;
-        color: #000;
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    .refresh-button:hover {
-        background: #ffca2c;
-    }
+		.options-content::-webkit-scrollbar-thumb:hover {
+			background: rgba(255, 255, 255, 0.3);
+		}
 </style>
 
 @code {
-    [Parameter]
-    public BugViewerOptions Options { get; set; } = BugViewerOptions.Default;
+	[Parameter]
+	public BugViewerOptions Options { get; set; } = BugViewerOptions.Default;
 
-    [Parameter]
-    public bool IsExpanded { get; set; } = true;
+	[Parameter]
+	public bool IsExpanded { get; set; } = true;
 
-    [Parameter]
-    public EventCallback<bool> IsExpandedChanged { get; set; }
+	[Parameter]
+	public EventCallback<bool> IsExpandedChanged { get; set; }
 
-    private async Task ToggleExpanded()
-    {
-        IsExpanded = !IsExpanded;
-        await IsExpandedChanged.InvokeAsync(IsExpanded);
-    }
-    
-    private double ParseDouble(object? value) =>
-        double.TryParse(value?.ToString(), out var result) ? result : 0;
+	[Inject]
+	private NavigationManager Navigation { get; set; } = default!;
 
-    private int ParseInt(object? value) =>
-        int.TryParse(value?.ToString(), out var result) ? result : 0;
+	// Color hex strings for BitColorPicker
+	private string _clearColorHex = "#00E9E9FF";
+	private string _lineColorHex = "#D7D7D7FF";
+	private string _baseColorHex = "#00000000";
 
+	private bool _showMsaaRefreshPrompt = false;
 
-    private string RgbaToCss(Color color) => 
-        $"{color.R}, {color.G}, {color.B}, {color.A}";
+	// Dropdown items
+	private List<BitDropdownItem<ProjectionType>> _projectionTypeItems = new()
+	{
+		new() { Value = ProjectionType.Perspective, Text = "Perspective (Realistic)" },
+		new() { Value = ProjectionType.Orthographic, Text = "Orthographic (CAD/Technical)" }
+	};
 
-    private Task UpdateClearColor(int? r = null, int? g = null, int? b = null, int? a = null)
-    {
-        Options.ClearColor = Color.FromArgb(a ?? Options.ClearColor.A,
-            r ?? Options.ClearColor.R,
-            g ?? Options.ClearColor.G,
-            b ?? Options.ClearColor.B
-        );
-        return Task.CompletedTask;
-    }
+	private List<BitDropdownItem<int>> _sampleCountItems = new()
+	{
+		new() { Value = 1, Text = "1x - No anti-aliasing (fastest)" },
+		new() { Value = 2, Text = "2x - Slight smoothing" },
+		new() { Value = 4, Text = "4x - Smooth (recommended)" },
+		new() { Value = 8, Text = "8x - Very smooth (slower)" }
+	};
 
-    private Task UpdateLineColor(int? r = null, int? g = null, int? b = null, int? a = null)
-    {
-        Options.LineColor = Color.FromArgb(
-            a ?? Options.LineColor.A,
-            r ?? Options.LineColor.R,
-            g ?? Options.LineColor.G,
-            b ?? Options.LineColor.B
-        );
-        return Task.CompletedTask;
-    }
+	protected override void OnParametersSet()
+	{
+		base.OnParametersSet();
+		InitializeColorHexStrings();
+	}
 
-    private Task UpdateBaseColor(int? r = null, int? g = null, int? b = null, int? a = null)
-    {
-        Options.BaseColor = Color.FromArgb(
-            a ?? Options.BaseColor.A,
-            r ?? Options.BaseColor.R,
-            g ?? Options.BaseColor.G,
-            b ?? Options.BaseColor.B
-        );
-        return Task.CompletedTask;
-    }
+	protected override void OnInitialized()
+	{
+		base.OnInitialized();
+		Options.PropertyChanged += OnOptionsPropertyChanged;
+	}
 
-    private Task UpdateLineWidthX(double value)
-    {
-        Options.LineWidthX = value;
-        return Task.CompletedTask;
-    }
+	private void OnOptionsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName == nameof(BugViewerOptions.SampleCount))
+		{
+			_showMsaaRefreshPrompt = true;
+			StateHasChanged();
+		}
+	}
 
-    private Task UpdateLineWidthY(double value)
-    {
-        Options.LineWidthY = value;
-        return Task.CompletedTask;
-    }
+	private void InitializeColorHexStrings()
+	{
+		_clearColorHex = ColorToHex(Options.ClearColor);
+		_lineColorHex = ColorToHex(Options.LineColor);
+		_baseColorHex = ColorToHex(Options.BaseColor);
+	}
 
-    private Task UpdateFov(double value)
-    {
-        Options.Fov = value;
-        return Task.CompletedTask;
-    }
+	private async Task ToggleExpanded()
+	{
+		IsExpanded = !IsExpanded;
+		await IsExpandedChanged.InvokeAsync(IsExpanded);
+	}
 
-    private Task UpdateOrthoSize(double value)
-    {
-        Options.OrthoSize = value;
-        return Task.CompletedTask;
-    }
+	private static string ColorToHex(Color color)
+	{
+		return $"#{color.R:X2}{color.G:X2}{color.B:X2}{color.A:X2}";
+	}
 
-    private Task UpdateZNear(double value)
-    {
-        Options.ZNear = value;
-        return Task.CompletedTask;
-    }
+	private static Color HexToColor(string hex)
+	{
+		hex = hex.TrimStart('#');
 
-    private Task UpdateZFar(double value)
-    {
-        Options.ZFar = value;
-        return Task.CompletedTask;
-    }
+		if (hex.Length == 8) // RRGGBBAA
+		{
+			return Color.FromArgb(
+				Convert.ToByte(hex.Substring(6, 2), 16), // A
+				Convert.ToByte(hex.Substring(0, 2), 16), // R
+				Convert.ToByte(hex.Substring(2, 2), 16), // G
+				Convert.ToByte(hex.Substring(4, 2), 16)  // B
+			);
+		}
+		else if (hex.Length == 6) // RRGGBB
+		{
+			return Color.FromArgb(
+				255, // Full opacity
+				Convert.ToByte(hex.Substring(0, 2), 16), // R
+				Convert.ToByte(hex.Substring(2, 2), 16), // G
+				Convert.ToByte(hex.Substring(4, 2), 16)  // B
+			);
+		}
 
-    private Task UpdateProjectionType(ProjectionType value)
-    {
-        Options.ProjectionType = value;
-        return Task.CompletedTask;
-    }
+		return Color.Black; // Fallback
+	}
 
-    private async Task HandleProjectionTypeChange(ChangeEventArgs e)
-    {
-        if (int.TryParse(e.Value?.ToString(), out var value))
-        {
-            await UpdateProjectionType((ProjectionType)value);
-        }
-    }
+	private void UpdateClearColorFromPicker()
+	{
+		Options.ClearColor = HexToColor(_clearColorHex);
+	}
 
-    private Task UpdateSampleCount(int value)
-    {
-        Options.SampleCount = value;
-        return Task.CompletedTask;
-    }
+	private void UpdateLineColorFromPicker()
+	{
+		Options.LineColor = HexToColor(_lineColorHex);
+	}
 
-    private async Task HandleSampleCountChange(ChangeEventArgs e)
-    {
-        if (int.TryParse(e.Value?.ToString(), out var value))
-        {
-            await UpdateSampleCount(value);
-            _showMsaaRefreshPrompt = true;
-        }
-    }
+	private void UpdateBaseColorFromPicker()
+	{
+		Options.BaseColor = HexToColor(_baseColorHex);
+	}
 
-    private bool _showMsaaRefreshPrompt = false;
+	private void RefreshPage()
+	{
+		Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+	}
 
-    private void RefreshPage()
-    {
-        // Trigger browser reload to reinitialize WebGPU with new MSAA setting
-        Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
-    }
+	private void ResetToDefaults()
+	{
+		var defaultOptions = BugViewerOptions.Default;
 
-    private async Task ResetToDefaults()
-    {
-        var defaultOptions = BugViewerOptions.Default;
-        Options.ClearColor = defaultOptions.ClearColor;
-        Options.LineColor = defaultOptions.LineColor;
-        Options.BaseColor = defaultOptions.BaseColor;
-        Options.LineWidthX = defaultOptions.LineWidthX;
-        Options.LineWidthY = defaultOptions.LineWidthY;
-        Options.SampleCount = defaultOptions.SampleCount;
-        Options.ProjectionType = defaultOptions.ProjectionType;
-        Options.Fov = defaultOptions.Fov;
-        Options.OrthoSize = defaultOptions.OrthoSize;
-        Options.ZNear = defaultOptions.ZNear;
-        Options.ZFar = defaultOptions.ZFar;
+		Options.ClearColor = defaultOptions.ClearColor;
+		Options.LineColor = defaultOptions.LineColor;
+		Options.BaseColor = defaultOptions.BaseColor;
+		Options.LineWidthX = defaultOptions.LineWidthX;
+		Options.LineWidthY = defaultOptions.LineWidthY;
+		Options.SampleCount = defaultOptions.SampleCount;
+		Options.ProjectionType = defaultOptions.ProjectionType;
+		Options.Fov = defaultOptions.Fov;
+		Options.OrthoSize = defaultOptions.OrthoSize;
+		Options.ZNear = defaultOptions.ZNear;
+		Options.ZFar = defaultOptions.ZFar;
+		Options.MaxPolar = defaultOptions.MaxPolar;
+		Options.MinPolar = defaultOptions.MinPolar;
+		Options.MaxAzimuth = defaultOptions.MaxAzimuth;
+		Options.MinAzimuth = defaultOptions.MinAzimuth;
+		Options.ConstrainPolar = defaultOptions.ConstrainPolar;
+		Options.ConstrainAzimuth = defaultOptions.ConstrainAzimuth;
+		Options.MaxDistance = defaultOptions.MaxDistance;
+		Options.MinDistance = defaultOptions.MinDistance;
+		Options.ConstrainDistance = defaultOptions.ConstrainDistance;
+		Options.OrbitSensitivity = defaultOptions.OrbitSensitivity;
+		Options.ZoomSensitivity = defaultOptions.ZoomSensitivity;
+		Options.PanSensitivity = defaultOptions.PanSensitivity;
+		Options.PanSpeedMultiplier = defaultOptions.PanSpeedMultiplier;
 
-        _showMsaaRefreshPrompt = false;
-    }
-
-    [Inject]
-    private NavigationManager Navigation { get; set; } = default!;
+		InitializeColorHexStrings();
+		_showMsaaRefreshPrompt = false;
+	}
 }
