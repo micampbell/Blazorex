@@ -3,56 +3,43 @@
 @using System.Drawing
 @using BugViewer
 @using TVGL
+@using TVGLPresenter.Components
 
 <PageTitle>Home</PageTitle>
-
-<button class="open-button" @onclick="OpenFile">
-	OpenFile
-</button>
+<InputFile OnChange="OpenFile" />
 <BugViewer @ref="viewer" />
-@* <BugViewer.BugViewer Width="800" Height="800" @ref="viewer" /> *@
-
-<style>
-	.open-button {
-		bottom: 20px;
-		padding: 12px 24px;
-		background: #28a745;
-		border: none;
-		border-radius: 8px;
-		color: white;
-		font-size: 14px;
-		font-weight: 600;
-		cursor: pointer;
-		z-index: 1000;
-		box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-		transition: background 0.2s, transform 0.1s;
-	}
-
-	.open-button {
-		left: 20px;
-	}
-
-
-		.open-button:hover {
-			background: #218838;
-		}
-
-		.open-button:active {
-			transform: scale(0.98);
-		}
-
-</style>
-
+<LogViewer @ref="logViewer"  />
 
 @code {
 	private BugViewer? viewer;
+	private LogViewer logViewer = new()!;
 
-	private async Task OpenFile(MouseEventArgs args)
+	protected override void OnAfterRender(bool firstRender)
 	{
-		string filename = "";
-		//add a file picker here
+		if (firstRender)
+		{
+			TVGL.Global.Logger = logViewer;
+		}
+	}
+	private async Task OpenFile(InputFileChangeEventArgs args)
+	{
+		var fileArgs = args.GetMultipleFiles(1)[0];
+		string filename = fileArgs.Name;
+		logViewer.LogInformation($"Loaded polygon from {filename}");
+		TVGL.Global.Logger.LogInformation("whaletakt");
+		
+		// Buffer the file into a MemoryStream to allow synchronous reads.
+		await using var memoryStream = new MemoryStream();
+		// The OpenReadStream provides a stream that must be read asynchronously.
+		await using (var stream = fileArgs.OpenReadStream(long.MaxValue))
+		{
+			await stream.CopyToAsync(memoryStream);
+		}
+		// Reset the position to the beginning of the stream.
+		memoryStream.Position = 0;
 
-		IO.Open(filename, out TessellatedSolid ts);
+		IO.Open(memoryStream, filename, out TessellatedSolid[] tss);
+		var ts = tss[0];
 		MeshData meshData;
 		meshData = new MeshData
 		{
@@ -61,12 +48,12 @@
 			Colors = ts.HasUniformColor ? [ConvertFromTVGLColor(ts.SolidColor)]
 			: ts.Faces.Select(f => ConvertFromTVGLColor(f.Color)),
 			Indices = ts.Faces.Select(f => (f.A.IndexInList, f.B.IndexInList, f.C.IndexInList)),
-			Vertices = ts.Vertices.Select(v => new System.Numerics.Vector3((float)v.X, (float)v.Y, (float)v.Z))
+			Vertices = ts.Vertices.Select(v => new System.Numerics.Vector3((float)v.X/100f, (float)v.Y/100f, (float)v.Z/100f))
 		};
 		// Add to WebGPU scene
 		await viewer.AddMeshAsync(meshData);
 	}
 
 	private static System.Drawing.Color ConvertFromTVGLColor(TVGL.Color c)
-	   => System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B);
+				=> System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B);
 }

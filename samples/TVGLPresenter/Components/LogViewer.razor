@@ -1,0 +1,64 @@
+@using Microsoft.Extensions.Logging
+@implements IDisposable
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Nesting Process Logs</h5>
+        <div>
+            <button class="btn btn-sm btn-outline-secondary me-2" @onclick="ClearLogs">Clear</button>
+            <button class="btn btn-sm @(autoScroll ? "btn-primary" : "btn-outline-primary")" @onclick="ToggleAutoScroll">
+                Auto-scroll
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="log-container" style="height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.875rem; background-color: white;" @ref="logContainer">
+            @if (logEntries.Any())
+            {
+                @foreach (var entry in logEntries.TakeLast(maxLogEntries))
+                {
+                    <div class="log-entry @GetLogLevelClass(entry.LogLevel)">
+                        <span class="log-timestamp">[@entry.Timestamp.ToString("HH:mm:ss.fff")]</span>
+                        <span class="log-level">[@entry.LogLevel.ToString().ToUpper()]</span>
+                        <span class="log-message">@entry.Message</span>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="text-muted">No logs to display. Logs will appear here during nesting operations.</div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .log-entry {
+        padding: 2px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .log-timestamp {
+        color: #6c757d;
+        margin-right: 8px;
+    }
+    
+    .log-level {
+        font-weight: bold;
+        margin-right: 8px;
+        min-width: 60px;
+        display: inline-block;
+    }
+    
+    .log-message {
+        color: #212529;
+    }
+    
+    .log-level-trace { color: #6c757d; }
+    .log-level-debug { color: #17a2b8; }
+    .log-level-information { color: #28a745; }
+    .log-level-warning { color: #ffc107; }
+    .log-level-error { color: #dc3545; }
+    .log-level-critical { color: #dc3545; font-weight: bold; }
+</style>
+
