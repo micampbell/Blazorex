@@ -14,19 +14,31 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
 
-      - name: Setup .NET Core @ Latest
-        uses: actions/setup-dotnet@v1        
+      - name: Setup .NET @ Latest
+        uses: actions/setup-dotnet@v3        
         with:
-            dotnet-version: '10.x'
+            dotnet-version: '10.0.x'
 
-      - name: Generate NuGet packages
-        run: dotnet pack ./ -c Release
+      - name: Generate NuGet package for BugViewer
+        run: |
+          dotnet --info
+          mkdir -p ./packages
+          dotnet pack ./BugViewer/BugViewer.csproj -c Release -o ./packages
+
+      - name: List packages
+        run: ls -la ./packages || true
 
       - name: Push packages to registry
+        if: success() && (github.event_name == 'workflow_dispatch' || github.event_name == 'release')
         run: |
-          cd ./packages
-          dotnet nuget push "*.nupkg" -k ${NUGET_API_KEY} -s https://api.nuget.org/v3/index.json --skip-duplicate
+          set -e
+          if ls ./packages/*.nupkg 1> /dev/null 2>&1; then
+            echo "Pushing packages..."
+            dotnet nuget push "./packages/*.nupkg" -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json --skip-duplicate
+          else
+            echo "No packages found to push"
+          fi
         env:
-          NUGET_API_KEY: ${{secrets.NUGET_API_KEY}}        
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}

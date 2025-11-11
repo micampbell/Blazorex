@@ -1,0 +1,30 @@
+ The API key from your nuget.org account. It’s tied to your nuget.org user and you paste that key into the GitHub repository secrets area under the name NUGET_API_KEY. The GitHub Actions workflow reads that secret and uses it to authenticate dotnet nuget push.
+Step-by-step: get a NuGet API key
+1.	On nuget.org sign in.
+2.	Click your profile (top-right) → “API Keys”.
+3.	Click “Create” (or view an existing key). When creating:
+•	Give it a descriptive name (e.g., GitHub Actions - BugViewer).
+•	Choose scope:
+•	Restrict to specific package ID(s) if you want least privilege (recommended). You can enter BugViewer or a prefix depending on naming.
+•	Or choose “All packages” if you need broader scope.
+•	Optionally set expiration.
+4.	Create the key and copy the generated value now (you won’t be able to view it again).
+Notes about scope
+•	The key is tied to your nuget.org account (not the repo). You do NOT need to create a package on nuget.org first — you can create the key and then push packages later.
+•	Prefer restricting the key to the package ID(s) you will publish so a leak can’t publish other packages.
+Add the key to GitHub repository secrets
+1.	In GitHub go to the repository → Settings → “Secrets and variables” → “Actions”.
+2.	Click “New repository secret”.
+3.	Name it exactly NUGET_API_KEY.
+4.	Paste the API key value from nuget.org and save.
+How the workflow uses it
+•	Your workflow reads ${{ secrets.NUGET_API_KEY }} and passes it to dotnet nuget push via an environment variable or command line. That is already present in your nuget.yml.
+How to test
+•	Locally: run
+•	dotnet pack ./BugViewer/BugViewer.csproj -c Release -o ./packages
+•	dotnet nuget push ./packages/*.nupkg -k <YOUR_API_KEY> -s https://api.nuget.org/v3/index.json
+•	In GitHub: run the NuGet Generation workflow manually (Actions → NuGet Generation → Run workflow) or create a release to trigger it. Check the Actions run logs for the dotnet nuget push step to confirm success.
+Security & maintenance
+•	Do not commit the API key into source code.
+•	Rotate/regenerate the key if it’s leaked or when someone leaves the team.
+•	You can revoke a key on nuget.org anytime.
