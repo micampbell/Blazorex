@@ -237,7 +237,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	/// <summary>
 	/// Camera instance for controlling the 3D view.
 	/// </summary>
-	public OrbitCamera? Camera { get;private set; }
+	public OrbitCamera? Camera { get; private set; }
 
 	/// <summary>
 	/// Event raised when a picking ray is created (e.g., on double-click).
@@ -713,6 +713,21 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		yield return c.G / 255f;
 		yield return c.B / 255f;
 		yield return c.A / 255f;
+	}
+	internal static IEnumerable<float> ColorToJavaScript(string c)
+	{
+		var hasTransparency = c.StartsWith("rgba");
+		if (hasTransparency)
+			c = c.Substring(5);
+		else c = c.Substring(4);
+		c = c.TrimEnd(')');
+		var cArray = c.Split(',');
+		yield return int.Parse(cArray[0]) / 255f;
+		yield return int.Parse(cArray[1]) / 255f;
+		yield return int.Parse(cArray[2]) / 255f;
+		if (hasTransparency)
+			yield return int.Parse(cArray[3]) / 255f;
+		else yield return 1f;
 	}
 	private async void OnOptionsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
 	{
