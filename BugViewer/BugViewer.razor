@@ -714,20 +714,15 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		yield return c.B / 255f;
 		yield return c.A / 255f;
 	}
-	internal static IEnumerable<float> ColorToJavaScript(string c)
-	{
-		var hasTransparency = c.StartsWith("rgba");
-		if (hasTransparency)
-			c = c.Substring(5);
-		else c = c.Substring(4);
+	internal static IEnumerable<float> ColorToJavaScript(string c, double transparency)
+	{ 
+		c = c.Substring(4);
 		c = c.TrimEnd(')');
 		var cArray = c.Split(',');
 		yield return int.Parse(cArray[0]) / 255f;
 		yield return int.Parse(cArray[1]) / 255f;
 		yield return int.Parse(cArray[2]) / 255f;
-		if (hasTransparency)
-			yield return int.Parse(cArray[3]) / 255f;
-		else yield return 1f;
+		yield return (float)transparency;
 	}
 	private async void OnOptionsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
 	{

@@ -30,9 +30,9 @@
 					<BitSlider @bind-Value="Options.LineWidthY"
 							   Min="0" Max="1" Step="0.01" />
 					<BitLabel>Grid Line Color</BitLabel>
-					<BitColorPicker @bind-Color="Options.LineColor" ShowAlphaSlider="true" />
+					<BitColorPicker @bind-Color="Options.LineColor" @bind-Alpha="Options.LineTransparency" ShowAlphaSlider="true" />
 					<BitLabel>Grid Base Color</BitLabel>
-					<BitColorPicker @bind-Color="Options.BaseColor" ShowAlphaSlider="true" />
+					<BitColorPicker @bind-Color="Options.BaseColor" @bind-Alpha="Options.BaseTransparency" ShowAlphaSlider="true" />
 				</BitStack>
 			</BitAccordion>
 			<BitAccordion Title="📷 Camera">

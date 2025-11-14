@@ -36,9 +36,11 @@ public class BugViewerOptions : INotifyPropertyChanged
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
     public static BugViewerOptions Default = new()
     {
-        ClearColor = "rgb(233,233,255)", 
-        LineColor = "rgba(215, 215, 215, 255)",
-        BaseColor = "rgba(0, 0, 0, 0)",
+        ClearColor = "rgb(233,233,255)",
+        LineColor = "rgb(215, 215, 215)",
+        LineTransparency = 0.8f,
+        BaseColor = "rgb(0, 0, 0)",
+        BaseTransparency = 0f,
         LineWidthX = 0.1,
         LineWidthY = 0.1,
         SampleCount = 4,
@@ -81,7 +83,7 @@ public class BugViewerOptions : INotifyPropertyChanged
     /// <summary>Background clear color for the rendering canvas.</summary>
     public string ClearColor
     {
-        get => _clearColor; 
+        get => _clearColor;
         set
         {
             if (_clearColor != value)
@@ -92,9 +94,23 @@ public class BugViewerOptions : INotifyPropertyChanged
         }
     }
 
+    private double _lineTransparency = 1.0;
+    public double LineTransparency
+    {
+        get => _lineTransparency;
+        set
+        {
+            if (Math.Abs(_lineTransparency - value) > 1e-3)
+            {
+                _lineTransparency = value;
+                OnPropertyChanged();
+            }
+        }
+    }
     private string _lineColor;
     /// <summary>Color of grid lines.</summary>
-    public string LineColor { 
+    public string LineColor
+    {
         get => _lineColor;
         set
         {
@@ -106,9 +122,25 @@ public class BugViewerOptions : INotifyPropertyChanged
         }
     }
 
+
+    private double _baseTransparency = 1.0;
+    public double BaseTransparency
+    {
+        get => _baseTransparency;
+        set
+        {
+            if (Math.Abs(_baseTransparency - value) > 1e-3)
+            {
+                _baseTransparency = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     private string _baseColor;
     /// <summary>Base/background color of the grid.</summary>
-    public string BaseColor { 
+    public string BaseColor
+    {
         get => _baseColor;
         set
         {
@@ -222,9 +254,9 @@ public class BugViewerOptions : INotifyPropertyChanged
     /// </summary>
     public object ToJavascriptOptions() => new
     {
-        clearColor = BugViewer.ColorToJavaScript(ClearColor).ToArray(), 
-        lineColor = BugViewer.ColorToJavaScript(LineColor).ToArray(),
-        baseColor = BugViewer.ColorToJavaScript(BaseColor).ToArray(),
+        clearColor = BugViewer.ColorToJavaScript(ClearColor, 1).ToArray(),
+        lineColor = BugViewer.ColorToJavaScript(LineColor, LineTransparency).ToArray(),
+        baseColor = BugViewer.ColorToJavaScript(BaseColor, BaseTransparency).ToArray(),
         lineWidthX = LineWidthX,
         lineWidthY = LineWidthY,
         sampleCount = SampleCount,
