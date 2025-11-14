@@ -28,7 +28,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	</canvas>
 
 	@* Settings panel overlays in top-right corner *@
-	<OptionsPanel Options="_currentOptions" @bind-IsExpanded="_isOptionsPanelExpanded" />
+	<OptionsPanel Options="Options" @bind-IsExpanded="_isOptionsPanelExpanded" />
 
 	@* Control instructions panel - shows when ? key is held *@
 	@if (_showControls)
@@ -210,23 +210,34 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	[Parameter]
 	public int Height { get; set; } = 0;
 
-	private BugViewerOptions _currentOptions = BugViewerOptions.Default;
 	private ElementReference? _canvasRef;
 	private bool _showControls = false;
-	private bool _isOptionsPanelExpanded = true;
+	private bool _isOptionsPanelExpanded = false;
 
+
+	private BugViewerOptions _options;
 
 	/// <summary>
 	/// WebGPU rendering options. Pass a configured instance to control grid appearance and camera.
 	/// </summary>
 	[Parameter]
-	public BugViewerOptions Options { get; set; } = BugViewerOptions.Default;
+	public BugViewerOptions Options
+	{
+		get => _options;
+		set
+		{
+			if (!ReferenceEquals(_options, value))
+			{
+				_options = value;
+				_options.PropertyChanged += OnOptionsChanged;
+			}
+		}
+	}
 
 	/// <summary>
 	/// Camera instance for controlling the 3D view.
 	/// </summary>
-	[Parameter]
-	public OrbitCamera? Camera { get; set; } = new OrbitCamera(Vector3.Zero, BugViewerOptions.Default);
+	public OrbitCamera? Camera { get;private set; }
 
 	/// <summary>
 	/// Event raised when a picking ray is created (e.g., on double-click).
@@ -261,9 +272,13 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 
 	protected override void OnInitialized()
 	{
+		if (Options is null)
+			Options = BugViewerOptions.Default;
+		Camera = new OrbitCamera(Vector3.Zero, Options);
 		// Start keyboard movement timer (60 FPS for smooth movement)
 		_keyboardMoveTimer = new System.Threading.Timer(_ => ProcessKeyboardMovement(), null, 0, 16);
-		_currentOptions.PropertyChanged += OnOptionsChanged;
+
+		// No direct subscription here; handled in Options setter above.
 	}
 
 	#region Public Facing Methods
@@ -458,7 +473,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 			// Send updated view matrix to JavaScript
 			if (_module != null && _ready)
 			{
-				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertForJavaScript());
+				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertMatrixToJavaScript());
 			}
 		}
 		else if (_isPanning)
@@ -475,7 +490,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 			// Send updated view matrix to JavaScript
 			if (_module != null && _ready)
 			{
-				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertForJavaScript());
+				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertMatrixToJavaScript());
 			}
 		}
 	}
@@ -500,7 +515,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		// Send updated view matrix to JavaScript
 		if (_module != null && _ready)
 		{
-			await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertForJavaScript());
+			await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertMatrixToJavaScript());
 		}
 	}
 
@@ -556,7 +571,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 			// Send updated view matrix to JavaScript
 			try
 			{
-				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertForJavaScript());
+				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertMatrixToJavaScript());
 			}
 			catch
 			{
@@ -625,11 +640,19 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 
 		if (isInitializing)
 		{
-			// Pass initial view matrix to JavaScript
-			// Use DotNetObjectReference for callbacks instead of passing 'this'
-			await _module.InvokeVoidAsync("initGPU_Canvas", _dotNetRef, _canvasRef, _currentOptions, Camera.ConvertForJavaScript());
+			// Pass normalized options on first init to avoid shape mismatches
+			await _module.InvokeVoidAsync(
+				"initGPU_Canvas",
+				_dotNetRef,
+				_canvasRef,
+				Options.ToJavascriptOptions(),
+				Camera.ConvertMatrixToJavaScript());
 		}
-			await _module.InvokeVoidAsync("updateDisplayOptions", _currentOptions.ToJavascriptOptions());
+		else
+		{
+			// Hot-update with the same normalized shape
+			await _module.InvokeVoidAsync("updateDisplayOptions", Options.ToJavascriptOptions());
+		}
 	}
 
 	[JSInvokable]
@@ -660,8 +683,11 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 
 	public async ValueTask DisposeAsync()
 	{
+		Camera = new OrbitCamera(Camera.Target, Options);
 		// Stop keyboard timer
 		_keyboardMoveTimer?.Dispose();
+
+		Options.PropertyChanged -= OnOptionsChanged;
 
 		if (_module is not null)
 		{
@@ -678,7 +704,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		Camera.Reset();
 
 		// Send updated view matrix to JavaScript
-		_module?.InvokeVoidAsync("updateViewMatrix", Camera.ConvertForJavaScript());
+		_module?.InvokeVoidAsync("updateViewMatrix", Camera.ConvertMatrixToJavaScript());
 	}
 	#endregion
 	internal static IEnumerable<float> ColorToJavaScript(Color c)

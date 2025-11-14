@@ -92,10 +92,10 @@ public class OrbitCamera
     /// <summary>
     /// Point in 3D space that the camera orbits around.
     /// </summary>
-    private Vector3 Target
+    internal Vector3 Target
     {
         get => target;
-        set
+        private set
         {
             target = value;
             updateCamera = true;
@@ -215,7 +215,7 @@ public class OrbitCamera
     /// <summary>
     /// Returns the view matrix as a float array for JavaScript interop.
     /// </summary>
-    public float[] ConvertForJavaScript()
+    public float[] ConvertMatrixToJavaScript()
     {
         var m = ViewMatrix;
         return

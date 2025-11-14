@@ -1,5 +1,6 @@
-using System.Drawing;
+using Microsoft.Extensions.Options;
 using System.ComponentModel;
+using System.Drawing;
 using System.Runtime.CompilerServices;
 
 namespace BugViewer;
@@ -33,7 +34,7 @@ public class BugViewerOptions : INotifyPropertyChanged
     }
 
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
-    public static BugViewerOptions Default => new()
+    public static BugViewerOptions Default = new()
     {
         ClearColor = Color.FromArgb(0, 233, 233, 255),
         LineColor = Color.FromArgb(215, 215, 215),
@@ -47,6 +48,34 @@ public class BugViewerOptions : INotifyPropertyChanged
         ZNear = 0.01,
         ZFar = 128
     };
+    public void ResetToDefault()
+    {
+        ClearColor = Default.ClearColor;
+        LineColor = Default.LineColor;
+        BaseColor = Default.BaseColor;
+        LineWidthX = Default.LineWidthX;
+        LineWidthY = Default.LineWidthY;
+        SampleCount = Default.SampleCount;
+        ProjectionType = Default.ProjectionType;
+        Fov = Default.Fov;
+        OrthoSize = Default.OrthoSize;
+        ZNear = Default.ZNear;
+        ZFar = Default.ZFar;
+        MaxPolar = Default.MaxPolar;
+        MinPolar = Default.MinPolar;
+        MaxAzimuth = Default.MaxAzimuth;
+        MinAzimuth = Default.MinAzimuth;
+        ConstrainPolar = Default.ConstrainPolar;
+        ConstrainAzimuth = Default.ConstrainAzimuth;
+        MaxDistance = Default.MaxDistance;
+        MinDistance = Default.MinDistance;
+        ConstrainDistance = Default.ConstrainDistance;
+        OrbitSensitivity = Default.OrbitSensitivity;
+        ZoomSensitivity = Default.ZoomSensitivity;
+        PanSensitivity = Default.PanSensitivity;
+        PanSpeedMultiplier = Default.PanSpeedMultiplier;
+
+    }
 
     private Color _clearColor;
     /// <summary>Background clear color for the rendering canvas.</summary>
@@ -104,57 +133,57 @@ public class BugViewerOptions : INotifyPropertyChanged
     // Orbit constraints
     private double _maxPolar = Math.PI * 0.49;
     /// <summary>Maximum polar angle in radians (slightly less than 90° to avoid gimbal lock).</summary>
-    public double MaxPolar { get => _maxPolar; set { _maxPolar = value; OnPropertyChanged(); } }
+    public double MaxPolar { get => _maxPolar; set { _maxPolar = value; } }
 
     private double _minPolar = -Math.PI * 0.49;
     /// <summary>Minimum polar angle in radians.</summary>
-    public double MinPolar { get => _minPolar; set { _minPolar = value; OnPropertyChanged(); } }
+    public double MinPolar { get => _minPolar; set { _minPolar = value; } }
 
     private double _maxAzimuth = Math.PI;
     /// <summary>Maximum azimuth angle in radians.</summary>
-    public double MaxAzimuth { get => _maxAzimuth; set { _maxAzimuth = value; OnPropertyChanged(); } }
+    public double MaxAzimuth { get => _maxAzimuth; set { _maxAzimuth = value; } }
 
     private double _minAzimuth = -Math.PI;
     /// <summary>Minimum azimuth angle in radians.</summary>
-    public double MinAzimuth { get => _minAzimuth; set { _minAzimuth = value; OnPropertyChanged(); } }
+    public double MinAzimuth { get => _minAzimuth; set { _minAzimuth = value; } }
 
     private bool _constrainPolar = true;
     /// <summary>Whether to constrain the polar angle.</summary>
-    public bool ConstrainPolar { get => _constrainPolar; set { _constrainPolar = value; OnPropertyChanged(); } }
+    public bool ConstrainPolar { get => _constrainPolar; set { _constrainPolar = value; } }
 
     private bool _constrainAzimuth = false;
     /// <summary>Whether to constrain the azimuth angle.</summary>
-    public bool ConstrainAzimuth { get => _constrainAzimuth; set { _constrainAzimuth = value; OnPropertyChanged(); } }
+    public bool ConstrainAzimuth { get => _constrainAzimuth; set { _constrainAzimuth = value; } }
 
     // Distance constraints
     private double _maxDistance = 50.0;
     /// <summary>Maximum camera distance from the target.</summary>
-    public double MaxDistance { get => _maxDistance; set { _maxDistance = value; OnPropertyChanged(); } }
+    public double MaxDistance { get => _maxDistance; set { _maxDistance = value; } }
 
     private double _minDistance = 0.5;
     /// <summary>Minimum camera distance from the target.</summary>
-    public double MinDistance { get => _minDistance; set { _minDistance = value; OnPropertyChanged(); } }
+    public double MinDistance { get => _minDistance; set { _minDistance = value; } }
 
     private bool _constrainDistance = true;
     /// <summary>Whether to constrain the camera distance.</summary>
-    public bool ConstrainDistance { get => _constrainDistance; set { _constrainDistance = value; OnPropertyChanged(); } }
+    public bool ConstrainDistance { get => _constrainDistance; set { _constrainDistance = value; } }
 
     // Sensitivity settings
     private double _orbitSensitivity = 0.003;
     /// <summary>Sensitivity for orbit (rotation) controls.</summary>
-    public double OrbitSensitivity { get => _orbitSensitivity; set { _orbitSensitivity = value; OnPropertyChanged(); } }
+    public double OrbitSensitivity { get => _orbitSensitivity; set { _orbitSensitivity = value; } }
 
     private double _zoomSensitivity = 0.001;
     /// <summary>Sensitivity for zoom controls (increased for better zoom response).</summary>
-    public double ZoomSensitivity { get => _zoomSensitivity; set { _zoomSensitivity = value; OnPropertyChanged(); } }
+    public double ZoomSensitivity { get => _zoomSensitivity; set { _zoomSensitivity = value; } }
 
     private double _panSensitivity = 0.007;
     /// <summary>Sensitivity for pan controls.</summary>
-    public double PanSensitivity { get => _panSensitivity; set { _panSensitivity = value; OnPropertyChanged(); } }
+    public double PanSensitivity { get => _panSensitivity; set { _panSensitivity = value; } }
 
     private double _panSpeedMultiplier = 3.0;
     /// <summary>Multiplier for pan speed when Shift is held.</summary>
-    public double PanSpeedMultiplier { get => _panSpeedMultiplier; set { _panSpeedMultiplier = value; OnPropertyChanged(); } }
+    public double PanSpeedMultiplier { get => _panSpeedMultiplier; set { _panSpeedMultiplier = value; } }
 
 
     /// <summary>

@@ -77,7 +77,7 @@
 
 					<BitLabel>Far Clipping Plane: @Options.ZFar.ToString("F0")</BitLabel>
 					<BitSlider @bind-Value="Options.ZFar"
-							   Min="10" Max="500" Step="1" />
+							   Min="10" Max="999" Step="1" />
 
 					<!-- Camera Controls Section -->
 					<BitText Variant="BitTextVariant.H6">Orbit Constraints</BitText>
@@ -113,7 +113,7 @@
 					{
 						<BitLabel>Max Distance: @Options.MaxDistance.ToString("F1")</BitLabel>
 						<BitSlider @bind-Value="Options.MaxDistance"
-								   Min="1" Max="100" Step="0.5" />
+								   Min="1" Max="1000" Step="0.5" />
 						<BitLabel>Min Distance: @Options.MinDistance.ToString("F2")</BitLabel>
 						<BitSlider @bind-Value="Options.MinDistance"
 								   Min="0.1" Max="10" Step="0.1" />
@@ -300,7 +300,7 @@
 
 @code {
 	[Parameter]
-	public BugViewerOptions Options { get; set; } = BugViewerOptions.Default;
+	public BugViewerOptions Options { get; set; } 
 
 	[Parameter]
 	public bool IsExpanded { get; set; } = true;
@@ -420,33 +420,7 @@
 
 	private void ResetToDefaults()
 	{
-		var defaultOptions = BugViewerOptions.Default;
-
-		Options.ClearColor = defaultOptions.ClearColor;
-		Options.LineColor = defaultOptions.LineColor;
-		Options.BaseColor = defaultOptions.BaseColor;
-		Options.LineWidthX = defaultOptions.LineWidthX;
-		Options.LineWidthY = defaultOptions.LineWidthY;
-		Options.SampleCount = defaultOptions.SampleCount;
-		Options.ProjectionType = defaultOptions.ProjectionType;
-		Options.Fov = defaultOptions.Fov;
-		Options.OrthoSize = defaultOptions.OrthoSize;
-		Options.ZNear = defaultOptions.ZNear;
-		Options.ZFar = defaultOptions.ZFar;
-		Options.MaxPolar = defaultOptions.MaxPolar;
-		Options.MinPolar = defaultOptions.MinPolar;
-		Options.MaxAzimuth = defaultOptions.MaxAzimuth;
-		Options.MinAzimuth = defaultOptions.MinAzimuth;
-		Options.ConstrainPolar = defaultOptions.ConstrainPolar;
-		Options.ConstrainAzimuth = defaultOptions.ConstrainAzimuth;
-		Options.MaxDistance = defaultOptions.MaxDistance;
-		Options.MinDistance = defaultOptions.MinDistance;
-		Options.ConstrainDistance = defaultOptions.ConstrainDistance;
-		Options.OrbitSensitivity = defaultOptions.OrbitSensitivity;
-		Options.ZoomSensitivity = defaultOptions.ZoomSensitivity;
-		Options.PanSensitivity = defaultOptions.PanSensitivity;
-		Options.PanSpeedMultiplier = defaultOptions.PanSpeedMultiplier;
-
+		Options.ResetToDefault();
 		InitializeColorHexStrings();
 		_showMsaaRefreshPrompt = false;
 	}
