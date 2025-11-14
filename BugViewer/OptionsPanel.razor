@@ -15,10 +15,7 @@
 				<BitGrid Columns="3">
 					<BitGridItem><BitLabel>Clear Color (Sky)</BitLabel></BitGridItem>
 					<BitGridItem>
-						<BitColorPicker @bind-Value="_clearColorHex"
-										OnChange="@(() => UpdateClearColorFromPicker())"
-										ShowAlphaSlider="true"
-										ShowPreview="true" />
+						<BitColorPicker @bind-Color="Options.ClearColor" />
 					</BitGridItem>
 					<BitGridItem>
 					</BitGridItem>
@@ -33,16 +30,9 @@
 					<BitSlider @bind-Value="Options.LineWidthY"
 							   Min="0" Max="1" Step="0.01" />
 					<BitLabel>Grid Line Color</BitLabel>
-					<BitColorPicker @bind-Value="_lineColorHex"
-									OnChange="@(() => UpdateLineColorFromPicker())"
-									ShowAlphaSlider="true"
-									ShowPreview="true" />
+					<BitColorPicker @bind-Color="Options.LineColor" ShowAlphaSlider="true" ShowPreview="true" />
 					<BitLabel>Grid Base Color</BitLabel>
-					<BitColorPicker @bind-Value="_baseColorHex"
-									OnChange="@(() => UpdateBaseColorFromPicker())"
-									ShowAlphaSlider="true"
-									ShowPreview="true" />
-
+					<BitColorPicker @bind-Color="Options.BaseColor" ShowAlphaSlider="true" ShowPreview="true" />
 				</BitStack>
 			</BitAccordion>
 			<BitAccordion Title="📷 Camera">
@@ -311,11 +301,6 @@
 	[Inject]
 	private NavigationManager Navigation { get; set; } = default!;
 
-	// Color hex strings for BitColorPicker
-	private string _clearColorHex = "#00E9E9FF";
-	private string _lineColorHex = "#D7D7D7FF";
-	private string _baseColorHex = "#00000000";
-
 	private bool _showMsaaRefreshPrompt = false;
 
 	// Dropdown items
@@ -336,7 +321,6 @@
 	protected override void OnParametersSet()
 	{
 		base.OnParametersSet();
-		InitializeColorHexStrings();
 	}
 
 	protected override void OnInitialized()
@@ -353,65 +337,12 @@
 			StateHasChanged();
 		}
 	}
-
-	private void InitializeColorHexStrings()
-	{
-		_clearColorHex = ColorToHex(Options.ClearColor);
-		_lineColorHex = ColorToHex(Options.LineColor);
-		_baseColorHex = ColorToHex(Options.BaseColor);
-	}
-
 	private async Task ToggleExpanded()
 	{
 		IsExpanded = !IsExpanded;
 		await IsExpandedChanged.InvokeAsync(IsExpanded);
 	}
 
-	private static string ColorToHex(Color color)
-	{
-		return $"#{color.R:X2}{color.G:X2}{color.B:X2}{color.A:X2}";
-	}
-
-	private static Color HexToColor(string hex)
-	{
-		hex = hex.TrimStart('#');
-
-		if (hex.Length == 8) // RRGGBBAA
-		{
-			return Color.FromArgb(
-				Convert.ToByte(hex.Substring(6, 2), 16), // A
-				Convert.ToByte(hex.Substring(0, 2), 16), // R
-				Convert.ToByte(hex.Substring(2, 2), 16), // G
-				Convert.ToByte(hex.Substring(4, 2), 16)  // B
-			);
-		}
-		else if (hex.Length == 6) // RRGGBB
-		{
-			return Color.FromArgb(
-				255, // Full opacity
-				Convert.ToByte(hex.Substring(0, 2), 16), // R
-				Convert.ToByte(hex.Substring(2, 2), 16), // G
-				Convert.ToByte(hex.Substring(4, 2), 16)  // B
-			);
-		}
-
-		return Color.Black; // Fallback
-	}
-
-	private void UpdateClearColorFromPicker()
-	{
-		Options.ClearColor = HexToColor(_clearColorHex);
-	}
-
-	private void UpdateLineColorFromPicker()
-	{
-		Options.LineColor = HexToColor(_lineColorHex);
-	}
-
-	private void UpdateBaseColorFromPicker()
-	{
-		Options.BaseColor = HexToColor(_baseColorHex);
-	}
 
 	private void RefreshPage()
 	{
@@ -421,7 +352,6 @@
 	private void ResetToDefaults()
 	{
 		Options.ResetToDefault();
-		InitializeColorHexStrings();
 		_showMsaaRefreshPrompt = false;
 	}
 }

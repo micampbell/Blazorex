@@ -36,9 +36,9 @@ public class BugViewerOptions : INotifyPropertyChanged
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
     public static BugViewerOptions Default = new()
     {
-        ClearColor = Color.FromArgb(0, 233, 233, 255),
-        LineColor = Color.FromArgb(215, 215, 215),
-        BaseColor = Color.FromArgb(0, 0, 0, 0),
+        ClearColor = "rgb(233,233,255)", 
+        LineColor = "rgba(215, 215, 215, 255)",
+        BaseColor = "rgba(0, 0, 0, 0)",
         LineWidthX = 0.1,
         LineWidthY = 0.1,
         SampleCount = 4,
@@ -77,17 +77,48 @@ public class BugViewerOptions : INotifyPropertyChanged
 
     }
 
-    private Color _clearColor;
+    private string _clearColor;
     /// <summary>Background clear color for the rendering canvas.</summary>
-    public Color ClearColor { get => _clearColor; set { _clearColor = value; OnPropertyChanged(); } }
+    public string ClearColor
+    {
+        get => _clearColor; 
+        set
+        {
+            if (_clearColor != value)
+            {
+                _clearColor = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
-    private Color _lineColor;
+    private string _lineColor;
     /// <summary>Color of grid lines.</summary>
-    public Color LineColor { get => _lineColor; set { _lineColor = value; OnPropertyChanged(); } }
+    public string LineColor { 
+        get => _lineColor;
+        set
+        {
+            if (_lineColor != value)
+            {
+                _lineColor = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
-    private Color _baseColor;
+    private string _baseColor;
     /// <summary>Base/background color of the grid.</summary>
-    public Color BaseColor { get => _baseColor; set { _baseColor = value; OnPropertyChanged(); } }
+    public string BaseColor { 
+        get => _baseColor;
+        set
+        {
+            if (_baseColor != value)
+            {
+                _baseColor = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     private double _lineWidthX;
     private double _lineWidthY;
@@ -191,9 +222,9 @@ public class BugViewerOptions : INotifyPropertyChanged
     /// </summary>
     public object ToJavascriptOptions() => new
     {
-        clearColor = new { r = ClearColor.R / 255f, g = ClearColor.G / 255f, b = ClearColor.B / 255f, a = ClearColor.A / 255f },
-        lineColor = new { r = LineColor.R / 255f, g = LineColor.G / 255f, b = LineColor.B / 255f, a = LineColor.A / 255f },
-        baseColor = new { r = BaseColor.R / 255f, g = BaseColor.G / 255f, b = BaseColor.B / 255f, a = BaseColor.A / 255f },
+        clearColor = BugViewer.ColorToJavaScript(ClearColor).ToArray(), 
+        lineColor = BugViewer.ColorToJavaScript(LineColor).ToArray(),
+        baseColor = BugViewer.ColorToJavaScript(BaseColor).ToArray(),
         lineWidthX = LineWidthX,
         lineWidthY = LineWidthY,
         sampleCount = SampleCount,

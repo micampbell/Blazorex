@@ -256,8 +256,8 @@ export class WebGpu_Canvas {
         const updateUniforms = () => {
             // Copy values from JS-side options into the typed views, then write entire buffer to GPU.
             this.clearColor = this.gridOptions.clearColor;
-            this.lineColor.set([this.gridOptions.lineColor.r, this.gridOptions.lineColor.g, this.gridOptions.lineColor.b, this.gridOptions.lineColor.a]);
-            this.baseColor.set([this.gridOptions.baseColor.r, this.gridOptions.baseColor.g, this.gridOptions.baseColor.b, this.gridOptions.baseColor.a]);
+            this.lineColor = this.gridOptions.lineColor;
+            this.baseColor = this.gridOptions.baseColor;
             this.lineWidth.set([this.gridOptions.lineWidthX, this.gridOptions.lineWidthY]);
             device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformArray);
         };
