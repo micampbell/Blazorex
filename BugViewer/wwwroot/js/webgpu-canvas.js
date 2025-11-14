@@ -254,11 +254,20 @@ export class WebGpu_Canvas {
         this.bindGroup = device.createBindGroup({ label: 'Pristine Grid', layout: bindGroupLayout, entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }] });
 
         const updateUniforms = () => {
-            // Copy values from JS-side options into the typed views, then write entire buffer to GPU.
-            this.clearColor = this.gridOptions.clearColor;
-            this.lineColor = this.gridOptions.lineColor;
-            this.baseColor = this.gridOptions.baseColor;
-            this.lineWidth.set([this.gridOptions.lineWidthX, this.gridOptions.lineWidthY]);
+            // Copy values into the preallocated uniform views; don't reassign them
+            if (this.gridOptions?.lineColor) this.lineColor.set(this.gridOptions.lineColor);
+            if (this.gridOptions?.baseColor) this.baseColor.set(this.gridOptions.baseColor);
+
+            const lwX = Number.isFinite(this.gridOptions?.lineWidthX) ? this.gridOptions.lineWidthX : this.lineWidth[0];
+            const lwY = Number.isFinite(this.gridOptions?.lineWidthY) ? this.gridOptions.lineWidthY : this.lineWidth[1];
+            this.lineWidth.set([lwX, lwY]);
+
+            // clearColor is a render-pass clear value, not part of this uniform buffer
+            if (this.gridOptions?.clearColor) {
+                this.clearColor = this.gridOptions.clearColor;
+                if (this.colorAttachment) this.colorAttachment.clearValue = this.clearColor;
+            }
+
             device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformArray);
         };
         updateUniforms();
