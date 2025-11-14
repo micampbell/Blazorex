@@ -12,29 +12,38 @@
 	{
 		<div class="options-content">
 			<BitAccordion Title="Lighting">
-				<BitGrid Columns="3">
+				<!-- Use a single column so the picker can consume the panel width -->
+				<BitGrid Columns="1">
 					<BitGridItem><BitLabel>Clear Color (Sky)</BitLabel></BitGridItem>
 					<BitGridItem>
-						<BitColorPicker @bind-Color="Options.ClearColor" />
-					</BitGridItem>
-					<BitGridItem>
+						<BitColorPicker Style="width:100%; max-width:100%;"
+										@bind-Color="Options.ClearColor" />
 					</BitGridItem>
 				</BitGrid>
 			</BitAccordion>
+
 			<BitAccordion Title="📐 Grid">
 				<BitStack>
 					<BitLabel>Line Width X: @Options.LineWidthX.ToString("F3")</BitLabel>
-					<BitSlider @bind-Value="Options.LineWidthX"
-							   Min="0" Max="1" Step="0.01" />
+					<BitSlider @bind-Value="Options.LineWidthX" Min="0" Max="1" Step="0.01" />
+
 					<BitLabel>Line Width Y: @Options.LineWidthY.ToString("F3")</BitLabel>
-					<BitSlider @bind-Value="Options.LineWidthY"
-							   Min="0" Max="1" Step="0.01" />
+					<BitSlider @bind-Value="Options.LineWidthY" Min="0" Max="1" Step="0.01" />
+
 					<BitLabel>Grid Line Color</BitLabel>
-					<BitColorPicker @bind-Color="Options.LineColor" @bind-Alpha="Options.LineTransparency" ShowAlphaSlider="true" />
+					<BitColorPicker Style="width:100%; max-width:100%;"
+									@bind-Color="Options.LineColor"
+									@bind-Alpha="Options.LineTransparency"
+									ShowAlphaSlider="true" />
+
 					<BitLabel>Grid Base Color</BitLabel>
-					<BitColorPicker @bind-Color="Options.BaseColor" @bind-Alpha="Options.BaseTransparency" ShowAlphaSlider="true" />
+					<BitColorPicker Style="width:100%; max-width:100%;"
+									@bind-Color="Options.BaseColor"
+									@bind-Alpha="Options.BaseTransparency"
+									ShowAlphaSlider="true" />
 				</BitStack>
 			</BitAccordion>
+
 			<BitAccordion Title="📷 Camera">
 				<BitStack>
 					<BitLabel>Projection Type</BitLabel>
@@ -45,8 +54,7 @@
 					@if (Options.ProjectionType == ProjectionType.Perspective)
 					{
 						<BitLabel>Field of View: @((Options.Fov * 180 / Math.PI).ToString("F0"))°</BitLabel>
-						<BitSlider @bind-Value="Options.Fov"
-								   Min="@(Math.PI * 0.2)" Max="@(Math.PI * 0.9)" Step="0.01" />
+						<BitSlider @bind-Value="Options.Fov" Min="@(Math.PI * 0.2)" Max="@(Math.PI * 0.9)" Step="0.01" />
 						<BitText Variant="BitTextVariant.Caption" Color="BitColor.SecondaryForeground">
 							Controls perspective distortion
 						</BitText>
@@ -54,20 +62,17 @@
 					else
 					{
 						<BitLabel>Orthographic Size: @Options.OrthoSize.ToString("F2")</BitLabel>
-						<BitSlider @bind-Value="Options.OrthoSize"
-								   Min="1" Max="20" Step="0.1" />
+						<BitSlider @bind-Value="Options.OrthoSize" Min="1" Max="20" Step="0.1" />
 						<BitText Variant="BitTextVariant.Caption" Color="BitColor.SecondaryForeground">
 							Half-height of visible area
 						</BitText>
 					}
 
 					<BitLabel>Near Clipping Plane: @Options.ZNear.ToString("F3")</BitLabel>
-					<BitSlider @bind-Value="Options.ZNear"
-							   Min="0.001" Max="1" Step="0.001" />
+					<BitSlider @bind-Value="Options.ZNear" Min="0.001" Max="1" Step="0.001" />
 
 					<BitLabel>Far Clipping Plane: @Options.ZFar.ToString("F0")</BitLabel>
-					<BitSlider @bind-Value="Options.ZFar"
-							   Min="10" Max="999" Step="1" />
+					<BitSlider @bind-Value="Options.ZFar" Min="10" Max="999" Step="1" />
 
 					<!-- Camera Controls Section -->
 					<BitText Variant="BitTextVariant.H6">Orbit Constraints</BitText>
@@ -76,11 +81,9 @@
 					@if (Options.ConstrainPolar)
 					{
 						<BitLabel>Max Polar Angle: @((Options.MaxPolar * 180 / Math.PI).ToString("F0"))°</BitLabel>
-						<BitSlider @bind-Value="Options.MaxPolar"
-								   Min="0" Max="@(Math.PI * 0.5)" Step="0.01" />
+						<BitSlider @bind-Value="Options.MaxPolar" Min="0" Max="@(Math.PI * 0.5)" Step="0.01" />
 						<BitLabel>Min Polar Angle: @((Options.MinPolar * 180 / Math.PI).ToString("F0"))°</BitLabel>
-						<BitSlider @bind-Value="Options.MinPolar"
-								   Min="@(-Math.PI * 0.5)" Max="0" Step="0.01" />
+						<BitSlider @bind-Value="Options.MinPolar" Min="@(-Math.PI * 0.5)" Max="0" Step="0.01" />
 					}
 
 					<BitCheckbox @bind-Value="Options.ConstrainAzimuth" Label="Constrain Azimuth Angle" />
@@ -88,11 +91,9 @@
 					@if (Options.ConstrainAzimuth)
 					{
 						<BitLabel>Max Azimuth Angle: @((Options.MaxAzimuth * 180 / Math.PI).ToString("F0"))°</BitLabel>
-						<BitSlider @bind-Value="Options.MaxAzimuth"
-								   Min="@(-Math.PI)" Max="@Math.PI" Step="0.01" />
+						<BitSlider @bind-Value="Options.MaxAzimuth" Min="@(-Math.PI)" Max="@Math.PI" Step="0.01" />
 						<BitLabel>Min Azimuth Angle: @((Options.MinAzimuth * 180 / Math.PI).ToString("F0"))°</BitLabel>
-						<BitSlider @bind-Value="Options.MinAzimuth"
-								   Min="@(-Math.PI)" Max="@Math.PI" Step="0.01" />
+						<BitSlider @bind-Value="Options.MinAzimuth" Min="@(-Math.PI)" Max="@Math.PI" Step="0.01" />
 					}
 
 					<!-- Distance Constraints -->
@@ -102,208 +103,117 @@
 					@if (Options.ConstrainDistance)
 					{
 						<BitLabel>Max Distance: @Options.MaxDistance.ToString("F1")</BitLabel>
-						<BitSlider @bind-Value="Options.MaxDistance"
-								   Min="1" Max="1000" Step="0.5" />
+						<BitSlider @bind-Value="Options.MaxDistance" Min="1" Max="1000" Step="0.5" />
 						<BitLabel>Min Distance: @Options.MinDistance.ToString("F2")</BitLabel>
-						<BitSlider @bind-Value="Options.MinDistance"
-								   Min="0.1" Max="10" Step="0.1" />
+						<BitSlider @bind-Value="Options.MinDistance" Min="0.1" Max="10" Step="0.1" />
 					}
 
 					<!-- Sensitivity Settings -->
 					<BitText Variant="BitTextVariant.H6">Sensitivity Settings</BitText>
 					<BitLabel>Orbit Sensitivity: @Options.OrbitSensitivity.ToString("F4")</BitLabel>
-					<BitSlider @bind-Value="Options.OrbitSensitivity"
-							   Min="0.001" Max="0.01" Step="0.0001" />
+					<BitSlider @bind-Value="Options.OrbitSensitivity" Min="0.001" Max="0.01" Step="0.0001" />
 					<BitLabel>Zoom Sensitivity: @Options.ZoomSensitivity.ToString("F4")</BitLabel>
-					<BitSlider @bind-Value="Options.ZoomSensitivity"
-							   Min="0.0001" Max="0.005" Step="0.0001" />
+					<BitSlider @bind-Value="Options.ZoomSensitivity" Min="0.0001" Max="0.005" Step="0.0001" />
 					<BitLabel>Pan Sensitivity: @Options.PanSensitivity.ToString("F4")</BitLabel>
-					<BitSlider @bind-Value="Options.PanSensitivity"
-							   Min="0.001" Max="0.02" Step="0.001" />
+					<BitSlider @bind-Value="Options.PanSensitivity" Min="0.001" Max="0.02" Step="0.001" />
 					<BitLabel>Pan Speed Multiplier (Shift): @Options.PanSpeedMultiplier.ToString("F1")</BitLabel>
-					<BitSlider @bind-Value="Options.PanSpeedMultiplier"
-							   Min="1" Max="10" Step="0.5" />
-		</BitStack>
-		</BitAccordion>
-		<!-- Rendering Section -->
-		<BitAccordion Title="🎬 Rendering" >
-			<BitStack>
+					<BitSlider @bind-Value="Options.PanSpeedMultiplier" Min="1" Max="10" Step="0.5" />
+				</BitStack>
+			</BitAccordion>
+
+			<!-- Rendering Section -->
+			<BitAccordion Title="🎬 Rendering">
+				<BitStack>
 					<BitLabel>MSAA Sample Count</BitLabel>
-					<BitDropdown @bind-Value="Options.SampleCount"
-								 Items="_sampleCountItems"
-								 Placeholder="Select sample count" />
-					<BitText Variant="BitTextVariant.Caption" Color="BitColor.Warning">
-						⚠️ Requires page refresh to take effect
-					</BitText>
+					<BitDropdown @bind-Value="Options.SampleCount" Items="_sampleCountItems" Placeholder="Select sample count" />
+					<BitText Variant="BitTextVariant.Caption" Color="BitColor.Warning">⚠️ Requires page refresh to take effect</BitText>
 
-				@if (_showMsaaRefreshPrompt)
-				{
-					<div class="refresh-prompt">
-						<BitText Variant="BitTextVariant.Body1" Color="BitColor.Warning">
-							MSAA setting changed
-						</BitText>
-						<BitButton OnClick="RefreshPage"
-								   Color="BitColor.Warning"
-								   Variant="BitVariant.Fill"
-								   Class="refresh-btn">
-							Refresh Page Now
-						</BitButton>
-					</div>
-				}
-		<BitButton OnClick="ResetToDefaults"
-				   Variant="BitVariant.Outline"
-				   FullWidth="true">
-			Reset to Defaults
-		</BitButton>
-		</BitStack>
-		</BitAccordion>
+					@if (_showMsaaRefreshPrompt)
+					{
+						<div class="refresh-prompt">
+							<BitText Variant="BitTextVariant.Body1" Color="BitColor.Warning">MSAA setting changed</BitText>
+							<BitButton OnClick="RefreshPage" Color="BitColor.Warning" Variant="BitVariant.Fill" Class="refresh-btn">
+								Refresh Page Now
+							</BitButton>
+						</div>
+					}
 
-	</div>
+					<BitButton OnClick="ResetToDefaults" Variant="BitVariant.Outline" FullWidth="true">Reset to Defaults</BitButton>
+				</BitStack>
+			</BitAccordion>
+		</div>
 	}
 </div>
 
 <style>
-	.options-panel-container {
-		position: absolute;
-		top: 20px;
-		right: 20px;
-		background: rgba(30, 30, 30, 0.95);
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		border-radius: 12px;
-		backdrop-filter: blur(10px);
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-		z-index: 1000;
-		max-height: 90vh;
-		overflow: hidden;
-		transition: width 0.3s ease;
-	}
+    .options-panel-container {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(30, 30, 30, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        z-index: 1000;
+        max-height: 90vh;
+        overflow: hidden;
+        transition: width 0.3s ease;
+        display: inline-block; /* shrink to fit */
+    }
 
-		.options-panel-container.collapsed {
-			width: auto;
-		}
+    .options-panel-container.collapsed { width: auto; }
 
-		.options-panel-container.expanded {
-			width: 700px;
-		}
+    .options-panel-container.expanded {
+        width: fit-content;   /* content-driven */
+        max-width: 300px;     /* cap width */
+        min-width: 150px;     /* keep usable */
+    }
 
-	.toggle-btn {
-		width: 100%;
-		text-align: left;
-		font-weight: 600;
-		padding: 12px 16px;
-	}
+    .options-content {
+        width: 100%;
+        padding: 0 12px 12px;
+        max-height: calc(90vh - 60px);
+        overflow-y: auto;
+        box-sizing: border-box;
+    }
 
-	.options-content {
-		padding: 0 16px 16px;
-		max-height: calc(90vh - 60px);
-		overflow-y: auto;
-	}
+    /* If you reintroduce a color grid, keep it from forcing width */
+    .colors-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
 
-	.section-content {
-		padding: 12px 0;
-	}
+    @@media (max-width: 500px) {
+        .options-panel-container.expanded { width: clamp(240px, 85vw, 380px); }
+        .colors-grid { grid-template-columns: 1fr; }
+    }
 
-	.setting-item {
-		margin-bottom: 20px;
-	}
-
-	.subsection {
-		margin-top: 20px;
-		padding-top: 16px;
-		border-top: 1px solid rgba(255, 255, 255, 0.1);
-	}
-
-		.subsection:first-child {
-			margin-top: 0;
-			padding-top: 0;
-			border-top: none;
-		}
-
-	.color-group {
-		margin-bottom: 24px;
-		padding: 12px;
-		background: rgba(255, 255, 255, 0.03);
-		border-radius: 8px;
-	}
-
-	.colors-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 16px;
-		padding: 8px 0;
-	}
-
-	.color-picker-item {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	.color-channels {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 12px;
-		margin: 12px 0;
-	}
-
-	.action-buttons {
-		margin-top: 20px;
-		padding-top: 16px;
-		border-top: 1px solid rgba(255, 255, 255, 0.1);
-	}
-
-	.refresh-prompt {
-		margin-top: 16px;
-		padding: 12px;
-		background: rgba(255, 193, 7, 0.15);
-		border: 1px solid #ffc107;
-		border-radius: 8px;
-		text-align: center;
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	.refresh-btn {
-		margin-top: 8px;
-	}
-
-	/* Custom scrollbar */
-	.options-content::-webkit-scrollbar {
-		width: 8px;
-	}
-
-	.options-content::-webkit-scrollbar-track {
-		background: rgba(255, 255, 255, 0.05);
-		border-radius: 4px;
-	}
-
-	.options-content::-webkit-scrollbar-thumb {
-		background: rgba(255, 255, 255, 0.2);
-		border-radius: 4px;
-	}
-
-		.options-content::-webkit-scrollbar-thumb:hover {
-			background: rgba(255, 255, 255, 0.3);
-		}
+    .refresh-prompt {
+        margin-top: 16px;
+        padding: 12px;
+        background: rgba(255, 193, 7, 0.15);
+        border: 1px solid #ffc107;
+        border-radius: 8px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
 </style>
 
 @code {
-	[Parameter]
-	public BugViewerOptions Options { get; set; } 
+	[Parameter] public BugViewerOptions Options { get; set; }
 
-	[Parameter]
-	public bool IsExpanded { get; set; } = true;
+	[Parameter] public bool IsExpanded { get; set; } = true;
 
-	[Parameter]
-	public EventCallback<bool> IsExpandedChanged { get; set; }
+	[Parameter] public EventCallback<bool> IsExpandedChanged { get; set; }
 
-	[Inject]
-	private NavigationManager Navigation { get; set; } = default!;
+	[Inject] private NavigationManager Navigation { get; set; } = default!;
 
 	private bool _showMsaaRefreshPrompt = false;
 
-	// Dropdown items
 	private List<BitDropdownItem<ProjectionType>> _projectionTypeItems = new()
 	{
 		new() { Value = ProjectionType.Perspective, Text = "Perspective (Realistic)" },
@@ -317,11 +227,6 @@
 		new() { Value = 4, Text = "4x - Smooth (recommended)" },
 		new() { Value = 8, Text = "8x - Very smooth (slower)" }
 	};
-
-	protected override void OnParametersSet()
-	{
-		base.OnParametersSet();
-	}
 
 	protected override void OnInitialized()
 	{
@@ -337,17 +242,14 @@
 			StateHasChanged();
 		}
 	}
+
 	private async Task ToggleExpanded()
 	{
 		IsExpanded = !IsExpanded;
 		await IsExpandedChanged.InvokeAsync(IsExpanded);
 	}
 
-
-	private void RefreshPage()
-	{
-		Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
-	}
+	private void RefreshPage() => Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
 
 	private void ResetToDefaults()
 	{

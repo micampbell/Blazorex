@@ -54,7 +54,9 @@ public class BugViewerOptions : INotifyPropertyChanged
     {
         ClearColor = Default.ClearColor;
         LineColor = Default.LineColor;
+        LineTransparency = Default.LineTransparency;
         BaseColor = Default.BaseColor;
+        BaseTransparency = Default.BaseTransparency;
         LineWidthX = Default.LineWidthX;
         LineWidthY = Default.LineWidthY;
         SampleCount = Default.SampleCount;
