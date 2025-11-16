@@ -12,42 +12,7 @@
 	➕ Add Wire
 </button>
 <BugViewer @ref="viewer" />
-@* <BugViewer.BugViewer Width="800" Height="800" @ref="viewer" /> *@
 
-<style>
-	.add-cube-button, .add-wire-button {
-		bottom: 20px;
-		padding: 12px 24px;
-		background: #28a745;
-		border: none;
-		border-radius: 8px;
-		color: white;
-		font-size: 14px;
-		font-weight: 600;
-		cursor: pointer;
-		z-index: 1000;
-		box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-		transition: background 0.2s, transform 0.1s;
-	}
-
-	.add-cube-button {
-		left: 20px;
-	}
-
-	.add-wire-button {
-		left: 160px;
-	}
-
-		.add-cube-button:hover, .add-wire-button:hover {
-			background: #218838;
-		}
-
-		.add-cube-button:active, .add-wire-button:active {
-			transform: scale(0.98);
-		}
-
-
-</style>
 
 
 @code {
