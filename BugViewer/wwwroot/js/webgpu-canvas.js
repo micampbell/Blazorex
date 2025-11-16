@@ -9,7 +9,7 @@
 //
 // Called from C# (WebGPUCanvas.razor)
 //  - initGPU_Canvas(dotnetRef, canvasEl, options, viewMatrix)
-//  • dotnetRef: DotNetObjectReference passed from C# for callbacks
+//      • dotnetRef: DotNetObjectReference passed from C# for callbacks
 //      • canvasEl: ElementReference to the Blazor-rendered canvas
 //      • options: { clearColor, lineColor, baseColor, lineWidthX, lineWidthY, sampleCount, fov, zNear, zFar }
 //      • viewMatrix: Initial view matrix as float array from C#
@@ -1344,38 +1344,29 @@ let dotNetRef = null;
 // line 159 SendOptionsToJavaScriptAsync 
 export function initGPU_Canvas(dotnet, canvasEl, options, viewMatrix) {
     // Entry point called by Blazor after the component renders the <canvas>.
-    dotNetRef = dotnet ?? null;
+    dotNetRef = dotnet;
     // Use the canvas ElementReference passed from Blazor if available
-    const canvas = canvasEl || document.querySelector('.webgpu-canvas');
-    if (!canvas) throw new Error('webgpu-canvas element not found');
+    const canvas = canvasEl;
     plotSpace = new WebGpu_Canvas(canvas, viewMatrix);
 
     // Apply base options including render config
-    if (options) {
-        if (typeof options.sampleCount === 'number') plotSpace.sampleCount = options.sampleCount;
+    plotSpace.sampleCount = options.sampleCount;
+    plotSpace.projectionType = options.projectionType === 0 ? 'perspective' : 'orthographic';
+    plotSpace.fov = options.fov;
+    plotSpace.orthoSize = options.orthoSize;
+    plotSpace.zNear = options.zNear;
+    plotSpace.zFar = options.zFar;
 
-        // Projection type (convert C# enum value to lowercase string)
-        if (typeof options.projectionType === 'number') {
-            plotSpace.projectionType = options.projectionType === 0 ? 'perspective' : 'orthographic';
-        }
+    Object.assign(plotSpace.gridOptions, options);
+    if (typeof plotSpace._updateUniforms === 'function') plotSpace._updateUniforms();
 
-        if (typeof options.fov === 'number') plotSpace.fov = options.fov;
-        if (typeof options.orthoSize === 'number') plotSpace.orthoSize = options.orthoSize;
-        if (typeof options.zNear === 'number') plotSpace.zNear = options.zNear;
-        if (typeof options.zFar === 'number') plotSpace.zFar = options.zFar;
-
-        Object.assign(plotSpace.gridOptions, options);
-        if (typeof plotSpace._updateUniforms === 'function') plotSpace._updateUniforms();
-    }
 
     // Periodically push frame ms to .NET (throttled)
-    if (dotNetRef) {
-        frameIntervalId = self.setInterval(() => {
-            if (!plotSpace) return;
-            const ms = plotSpace.frameMs || 0;
-            try { dotNetRef.invokeMethodAsync('OnFrameMsUpdate', ms); } catch { }
-        }, 1000);
-    }
+    frameIntervalId = self.setInterval(() => {
+        if (!plotSpace) return;
+        const ms = plotSpace.frameMs || 0;
+        dotNetRef.invokeMethodAsync('OnFrameMsUpdate', ms);
+    }, 1000);
 }
 
 // Get bounding client rect for an element
