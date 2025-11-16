@@ -351,15 +351,12 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		{
 			throw new InvalidOperationException("WebGPU is not ready. Wait for initialization.");
 		}
-		var data = new
-		{
-			id,
-			text,
-			position = new[] { position.X, position.Y, position.Z },
-			backgroundColor = ColorToJavaScript(backgroundColor).ToArray(),
-			textColor = ColorToJavaScript(textColor).ToArray()
-		};
-		await _module.InvokeVoidAsync("addTextBillboard", data);
+		
+		// Render text to bitmap in C# instead of JavaScript
+		var billboardData = TextBillboardRenderer.CreateBillboardData(
+			id, text, position, backgroundColor, textColor);
+		
+		await _module.InvokeVoidAsync("addTextBillboard", billboardData);
 	}
 
 	/// <summary>
@@ -473,7 +470,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 			// Send updated view matrix to JavaScript
 			if (_module != null && _ready)
 			{
-				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertMatrixToJavaScript());
+				await _module.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
 			}
 		}
 		else if (_isPanning)
@@ -490,7 +487,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 			// Send updated view matrix to JavaScript
 			if (_module != null && _ready)
 			{
-				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertMatrixToJavaScript());
+				await _module.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
 			}
 		}
 	}
@@ -515,7 +512,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		// Send updated view matrix to JavaScript
 		if (_module != null && _ready)
 		{
-			await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertMatrixToJavaScript());
+			await _module.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
 		}
 	}
 
@@ -571,7 +568,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 			// Send updated view matrix to JavaScript
 			try
 			{
-				await _module.InvokeVoidAsync("updateViewMatrix", Camera.ConvertMatrixToJavaScript());
+				await _module.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
 			}
 			catch
 			{
@@ -704,7 +701,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		Camera.Reset();
 
 		// Send updated view matrix to JavaScript
-		_module?.InvokeVoidAsync("updateViewMatrix", Camera.ConvertMatrixToJavaScript());
+		_module?.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
 	}
 	#endregion
 	internal static IEnumerable<float> ColorToJavaScript(Color c)
