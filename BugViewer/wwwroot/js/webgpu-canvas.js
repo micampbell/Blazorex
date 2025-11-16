@@ -652,6 +652,7 @@ export async function addMesh(meshData) {
 
     let colorBuffer = null;
     let bindGroup = null;
+    let bindGroupLayout = null;  // Declare here so it's accessible later
     let isTransparent = false;
     let shaderCode = null;
 
@@ -661,7 +662,7 @@ export async function addMesh(meshData) {
 
         colorBuffer = createBuffer(colors, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
 
-        const bindGroupLayout = device.createBindGroupLayout({
+        bindGroupLayout = device.createBindGroupLayout({
             label: `Mesh ${id} BGL`,
             entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }]
         });
@@ -690,7 +691,7 @@ export async function addMesh(meshData) {
     }
 
     const pipelineLayout = singleColor
-        ? device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout, bindGroupLayout.layout] })
+        ? device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout, bindGroupLayout] })
         : device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout] });
 
     const pipeline = await device.createRenderPipelineAsync({
