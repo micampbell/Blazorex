@@ -24,14 +24,13 @@
 
 			<BitAccordion Title="📐 Grid">
 				<BitStack>
-					<BitLabel>Line Width X: @Options.LineWidthX.ToString("F3")</BitLabel>
-					<BitSlider @bind-Value="Options.LineWidthX" Min="0" Max="1" Step="0.01" />
-
-					<BitLabel>Line Width Y: @Options.LineWidthY.ToString("F3")</BitLabel>
-					<BitSlider @bind-Value="Options.LineWidthY" Min="0" Max="1" Step="0.01" />
+					<BitSlider Label="Grid Size" @bind-Value="Options.GridSize" Min="50" Max="1000" Step="1" />
+					<BitSlider Label="Grid Spacing" @bind-Value="Options.GridSpacing" Min="1" Max="100" Step="0.5" />
+					<BitSlider Label="Line Width X" @bind-Value="Options.LineWidthX" Min="0" Max="1" Step="0.01" />
+					<BitSlider Label="Line Width Y" @bind-Value="Options.LineWidthY" Min="0" Max="1" Step="0.01" />
 
 					<BitLabel>Grid Line Color</BitLabel>
-					<BitColorPicker Style="width:100%; max-width:100%;"
+					<BitColorPicker  Style="width:100%; max-width:100%;"
 									@bind-Color="Options.LineColor"
 									@bind-Alpha="Options.LineTransparency"
 									ShowAlphaSlider="true" />
@@ -46,15 +45,12 @@
 
 			<BitAccordion Title="📷 Camera">
 				<BitStack>
-					<BitLabel>Projection Type</BitLabel>
-					<BitDropdown @bind-Value="Options.ProjectionType"
-								 Items="_projectionTypeItems"
-								 Placeholder="Select projection type" />
+					<BitToggle Label="Which Coordinate is Up?" OnText="Z is Up" OffText="Y is Up" @bind-Value="Options.ZIsUp" />
+					<BitToggle Label="Is View Projectsion or Orthographic?" OnText="Projection" OffText="Orthographic" @bind-Value="Options.IsProjectionCamera" />
 
-					@if (Options.ProjectionType == ProjectionType.Perspective)
+					@if (Options.IsProjectionCamera)
 					{
-						<BitLabel>Field of View: @((Options.Fov * 180 / Math.PI).ToString("F0"))°</BitLabel>
-						<BitSlider @bind-Value="Options.Fov" Min="@(Math.PI * 0.2)" Max="@(Math.PI * 0.9)" Step="0.01" />
+						<BitSlider Label="Field of View" @bind-Value="Options.Fov" Min="1" Max="179" Step="0.5" />
 						<BitText Variant="BitTextVariant.Caption" Color="BitColor.SecondaryForeground">
 							Controls perspective distortion
 						</BitText>
@@ -213,12 +209,6 @@
 	[Inject] private NavigationManager Navigation { get; set; } = default!;
 
 	private bool _showMsaaRefreshPrompt = false;
-
-	private List<BitDropdownItem<ProjectionType>> _projectionTypeItems = new()
-	{
-		new() { Value = ProjectionType.Perspective, Text = "Perspective (Realistic)" },
-		new() { Value = ProjectionType.Orthographic, Text = "Orthographic (CAD/Technical)" }
-	};
 
 	private List<BitDropdownItem<int>> _sampleCountItems = new()
 	{

@@ -30,10 +30,10 @@ const GRID_SHADER = `
   struct VertexOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f }
   struct Camera { projection: mat4x4f, view: mat4x4f }
   @group(0) @binding(0) var<uniform> camera: Camera;
-  struct GridArgs { lineColor: vec4f, baseColor: vec4f, lineWidth: vec2f }
+  struct GridArgs { lineColor: vec4f, baseColor: vec4f, lineWidth: vec2f, spacing: f32 }
   @group(1) @binding(0) var<uniform> gridArgs: GridArgs;
   @vertex fn vertexMain(in: VertexIn) -> VertexOut { var out: VertexOut; out.pos = camera.projection * camera.view * in.pos; out.uv = in.uv; return out; }
-  @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f { var grid = PristineGrid(in.uv, gridArgs.lineWidth); return mix(gridArgs.baseColor, gridArgs.lineColor, grid); }
+  @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f { var grid = PristineGrid(in.uv * gridArgs.spacing, gridArgs.lineWidth); return mix(gridArgs.baseColor, gridArgs.lineColor, grid); }
 `;
 
 const MESH_SHADER = `
@@ -197,13 +197,18 @@ const gridUniformArray = new ArrayBuffer(16 * Float32Array.BYTES_PER_ELEMENT);
 const gridLineColor = new Float32Array(gridUniformArray, 0, 4);
 const gridBaseColor = new Float32Array(gridUniformArray, 16, 4);
 const gridLineWidth = new Float32Array(gridUniformArray, 32, 2);
+const gridSpacingUniform = new Float32Array(gridUniformArray, 40, 1);
+
+// Grid configuration (updated from C#)
+let gridSize = 20.0;
+let gridSpacing = 1.0;
 
 // Render settings (updated from C#)
 let colorFormat = 'bgra8unorm';
 let depthFormat = 'depth24plus';
 let sampleCount = 4;
 let clearColor = { r: 0, g: 0, b: 0, a: 1.0 };
-let projectionType = 'perspective';
+let projectionType = true;
 let fov = Math.PI * 0.5;
 let orthoSize = 5.0;
 let zNear = 0.01;
@@ -332,12 +337,33 @@ async function initGrid() {
         multisample: { count: sampleCount }
     });
 
+    // Create grid uniform buffer
+    gridUniformBuffer = device.createBuffer({
+        size: gridUniformArray.byteLength,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+
+    gridBindGroup = device.createBindGroup({
+        label: 'Grid BG',
+        layout: bindGroupLayout,
+        entries: [{ binding: 0, resource: { buffer: gridUniformBuffer } }]
+    });
+
+    createGridGeometry();
+    updateGridUniforms();
+}
+
+function createGridGeometry() {
+    // Destroy existing buffers if they exist
+    if (gridVertexBuffer) gridVertexBuffer.destroy();
+    if (gridIndexBuffer) gridIndexBuffer.destroy();
+
     // Create grid geometry
     const vertexArray = new Float32Array([
-        -20, -0.5, -20, 0, 0,
-        20, -0.5, -20, 200, 0,
-        -20, -0.5, 20, 0, 200,
-        20, -0.5, 20, 200, 200,
+        -gridSize, -0.5, -gridSize, 0, 0,
+        gridSize, -0.5, -gridSize, 100, 0,
+        -gridSize, -0.5, gridSize, 0, 100,
+        gridSize, -0.5, gridSize, 100, 100,
     ]);
 
     gridVertexBuffer = device.createBuffer({
@@ -356,18 +382,13 @@ async function initGrid() {
     });
     new Uint32Array(gridIndexBuffer.getMappedRange()).set(indexArray);
     gridIndexBuffer.unmap();
+}
 
-    // Create grid uniform buffer
-    gridUniformBuffer = device.createBuffer({
-        size: gridUniformArray.byteLength,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-    });
-
-    gridBindGroup = device.createBindGroup({
-        label: 'Grid BG',
-        layout: bindGroupLayout,
-        entries: [{ binding: 0, resource: { buffer: gridUniformBuffer } }]
-    });
+function updateGridUniforms() {
+    const scale = 100 / gridSize;
+    const factor = 1 / (scale * gridSpacing);
+    gridSpacingUniform[0] = factor;
+    device.queue.writeBuffer(gridUniformBuffer, 0, gridUniformArray);
 }
 
 // ============================================================================
@@ -524,7 +545,7 @@ function setupResizeObserver() {
 
             canvas.width = width;
             canvas.height = height;
-            updateProjection();
+            //updateProjection();
 
             if (device) {
                 allocateRenderTargets(width, height);
@@ -578,21 +599,23 @@ function allocateRenderTargets(width, height) {
 function updateProjection() {
     const aspect = canvas.width / canvas.height;
 
-    if (projectionType === 'orthographic') {
+    if (projectionType) {
+        mat4.perspectiveZO(
+            projectionMatrix,
+            fov,
+            aspect,
+            zNear,
+            zFar
+        );
+    }
+    else
+    {
         mat4.ortho(
             projectionMatrix,
             -orthoSize * aspect,
             orthoSize * aspect,
             -orthoSize,
             orthoSize,
-            zNear,
-            zFar
-        );
-    } else {
-        mat4.perspectiveZO(
-            projectionMatrix,
-            fov,
-            aspect,
             zNear,
             zFar
         );
@@ -609,14 +632,13 @@ export function writeViewMatrix(matrixArray) {
 
 export function updateDisplayOptions(options) {
     applyOptions(options);
-    updateProjection();
+    //updateProjection();
 }
 
 function applyOptions(options) {
     if (typeof options.sampleCount === 'number') sampleCount = options.sampleCount;
-    if (typeof options.projectionType === 'number') {
-        projectionType = options.projectionType === 0 ? 'perspective' : 'orthographic';
-    }
+    projectionType = options.projectionType;
+
     if (typeof options.fov === 'number') fov = options.fov;
     if (typeof options.orthoSize === 'number') orthoSize = options.orthoSize;
     if (typeof options.zNear === 'number') zNear = options.zNear;
@@ -629,7 +651,20 @@ function applyOptions(options) {
         gridLineWidth.set([options.lineWidthX, options.lineWidthY]);
     }
 
-    if (device && gridUniformBuffer) {
+    let gridChanged = false;
+    if (typeof options.gridSize === 'number' && options.gridSize !== gridSize) {
+        gridSize = options.gridSize;
+        gridChanged = true;
+    }
+    if (typeof options.gridSpacing === 'number' && options.gridSpacing !== gridSpacing) {
+        gridSpacing = options.gridSpacing;
+        gridChanged = true;
+    }
+
+    if (gridChanged && device) {
+        createGridGeometry();
+        updateGridUniforms();
+    } else if (device && gridUniformBuffer) {
         device.queue.writeBuffer(gridUniformBuffer, 0, gridUniformArray);
     }
 

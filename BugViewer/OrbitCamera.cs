@@ -302,14 +302,12 @@ public class OrbitCamera
     {
         float aspectRatio = (float)(screenWidth / screenHeight);
 
-        if (_options.ProjectionType == ProjectionType.Orthographic)
-        {
-            return Matrix4x4.CreateOrthographic((float)_options.OrthoSize * 2 * aspectRatio, (float)_options.OrthoSize * 2, (float)_options.ZNear, (float)_options.ZFar);
-        }
+        if (_options.IsProjectionCamera)
+            return Matrix4x4.CreatePerspectiveFieldOfView((float)(Math.PI * _options.Fov / 180), 
+                aspectRatio, (float)_options.ZNear, (float)_options.ZFar);
         else
-        {
-            return Matrix4x4.CreatePerspectiveFieldOfView((float)_options.Fov, aspectRatio, (float)_options.ZNear, (float)_options.ZFar);
-        }
+            return Matrix4x4.CreateOrthographic((float)_options.OrthoSize * 2 * aspectRatio,
+                (float)_options.OrthoSize * 2, (float)_options.ZNear, (float)_options.ZFar);
     }
     #endregion
 }
