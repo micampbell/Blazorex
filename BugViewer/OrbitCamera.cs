@@ -298,7 +298,7 @@ public class OrbitCamera
     /// <summary>
     /// Creates the projection matrix based on current camera settings and screen dimensions.
     /// </summary>
-    private Matrix4x4 CreateProjectionMatrix(double screenWidth, double screenHeight)
+    public Matrix4x4 CreateProjectionMatrix(double screenWidth, double screenHeight)
     {
         float aspectRatio = (float)(screenWidth / screenHeight);
 
@@ -308,6 +308,19 @@ public class OrbitCamera
         else
             return Matrix4x4.CreateOrthographic((float)_options.OrthoSize * 2 * aspectRatio,
                 (float)_options.OrthoSize * 2, (float)_options.ZNear, (float)_options.ZFar);
+    }
+
+    /// <summary>
+    /// Returns the projection matrix as a float array for JavaScript interop.
+    /// </summary>
+    public float[] ConvertProjectionMatrixToJavaScript(double screenWidth, double screenHeight)
+    {
+        var m = CreateProjectionMatrix(screenWidth, screenHeight);
+        return
+            [ m.M11, m.M12, m.M13, m.M14,
+              m.M21, m.M22, m.M23, m.M24,
+              m.M31, m.M32, m.M33, m.M34,
+              m.M41, m.M42, m.M43, m.M44 ];
     }
     #endregion
 }

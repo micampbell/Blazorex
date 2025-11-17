@@ -256,6 +256,10 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	private HashSet<string> _pressedKeys = new();
 	private System.Threading.Timer? _keyboardMoveTimer;
 
+	// Canvas dimensions for projection matrix computation
+	private double _canvasWidth = 800;
+	private double _canvasHeight = 600;
+
 	// Double-click detection
 	private DateTime _lastClickTime = DateTime.MinValue;
 	private double _lastClickX;
@@ -439,7 +443,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		// Create picking ray from camera through mouse position
 		var pickingRay = Camera.CreateRayFromScreenPoint(relativeX, relativeY, canvasWidth, canvasHeight);
 
-		await AddTextBillboardAsync("myBillboard", "Hello World", pickingRay.Anchor + 5 * pickingRay.Direction, System.Drawing.Color.Blue,
+		await AddTextBillboardAsync("myBillboard", "Hello World", pickingRay.Anchor + 15 * pickingRay.Direction, System.Drawing.Color.Blue,
 		System.Drawing.Color.White);
 		// Raise event for subscribers to handle picking
 		OnPickingRayCreated?.Invoke(pickingRay);
@@ -650,16 +654,31 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		{
 			// Hot-update with the same normalized shape
 			await _module.InvokeVoidAsync("updateDisplayOptions", Options.ToJavascriptOptions());
+			
+			// Recompute and send projection matrix when options change
+			// (in case projection-related options like FOV, ortho size, etc. changed)
+			await SendProjectionMatrixToJavaScriptAsync();
 		}
 	}
 
 	[JSInvokable]
-	public Task OnWebGpuReady()
+	public Task OnFrameMsUpdate(double ms)
+	{
+		LatestFrameMs = ms;
+		// No StateHasChanged to avoid re-render per frame; consumer can bind to events if desired
+		return Task.CompletedTask;
+	}
+
+	[JSInvokable]
+	public async Task OnWebGpuReady()
 	{
 		_ready = true;
 		_error = null;
+		
+		// Send initial projection matrix after WebGPU is ready
+		await SendProjectionMatrixToJavaScriptAsync();
+		
 		StateHasChanged();
-		return Task.CompletedTask;
 	}
 
 	[JSInvokable]
@@ -672,11 +691,28 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	}
 
 	[JSInvokable]
-	public Task OnFrameMsUpdate(double ms)
+	public async Task OnCanvasResized(double width, double height)
 	{
-		LatestFrameMs = ms;
-		// No StateHasChanged to avoid re-render per frame; consumer can bind to events if desired
-		return Task.CompletedTask;
+		_canvasWidth = width;
+		_canvasHeight = height;
+
+		// Recompute and send projection matrix when canvas size changes
+		await SendProjectionMatrixToJavaScriptAsync();
+	}
+
+	private async Task SendProjectionMatrixToJavaScriptAsync()
+	{
+		if (_module is null || !_ready || Camera is null) return;
+
+		try
+		{
+			var projectionMatrix = Camera.ConvertProjectionMatrixToJavaScript(_canvasWidth, _canvasHeight);
+			await _module.InvokeVoidAsync("writeProjectionMatrix", projectionMatrix);
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"Error sending projection matrix: {ex.Message}");
+		}
 	}
 
 	public async ValueTask DisposeAsync()

@@ -1,8 +1,6 @@
 // Minimal WebGPU canvas module for Blazor WebAssembly
 // All business logic is in C# - this file only handles WebGPU API calls
 
-import { mat4 } from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/esm/index.js';
-
 // ============================================================================
 // Constants & Shaders
 // ============================================================================
@@ -208,11 +206,6 @@ let colorFormat = 'bgra8unorm';
 let depthFormat = 'depth24plus';
 let sampleCount = 4;
 let clearColor = { r: 0, g: 0, b: 0, a: 1.0 };
-let projectionType = true;
-let fov = Math.PI * 0.5;
-let orthoSize = 5.0;
-let zNear = 0.01;
-let zFar = 128;
 
 // Scene objects (maintained in sync with C#)
 const meshes = [];
@@ -234,7 +227,7 @@ export async function initGPU_Canvas(dotnet, canvasEl, options, initialViewMatri
     viewMatrix.set(initialViewMatrix);
 
     // Apply options
-    applyOptions(options);
+    updateDisplayOptions(options);
 
     // Set up resize observer
     setupResizeObserver();
@@ -545,7 +538,9 @@ function setupResizeObserver() {
 
             canvas.width = width;
             canvas.height = height;
-            //updateProjection();
+            
+            // Notify C# to recompute projection matrix
+            dotNetRef?.invokeMethodAsync('OnCanvasResized', width, height);
 
             if (device) {
                 allocateRenderTargets(width, height);
@@ -596,32 +591,6 @@ function allocateRenderTargets(width, height) {
     };
 }
 
-function updateProjection() {
-    const aspect = canvas.width / canvas.height;
-
-    if (projectionType) {
-        mat4.perspectiveZO(
-            projectionMatrix,
-            fov,
-            aspect,
-            zNear,
-            zFar
-        );
-    }
-    else
-    {
-        mat4.ortho(
-            projectionMatrix,
-            -orthoSize * aspect,
-            orthoSize * aspect,
-            -orthoSize,
-            orthoSize,
-            zNear,
-            zFar
-        );
-    }
-}
-
 // ============================================================================
 // Updates from C#
 // ============================================================================
@@ -630,19 +599,12 @@ export function writeViewMatrix(matrixArray) {
     viewMatrix.set(matrixArray);
 }
 
-export function updateDisplayOptions(options) {
-    applyOptions(options);
-    //updateProjection();
+export function writeProjectionMatrix(matrixArray) {
+    projectionMatrix.set(matrixArray);
 }
 
-function applyOptions(options) {
+export function updateDisplayOptions(options) {
     if (typeof options.sampleCount === 'number') sampleCount = options.sampleCount;
-    projectionType = options.projectionType;
-
-    if (typeof options.fov === 'number') fov = options.fov;
-    if (typeof options.orthoSize === 'number') orthoSize = options.orthoSize;
-    if (typeof options.zNear === 'number') zNear = options.zNear;
-    if (typeof options.zFar === 'number') zFar = options.zFar;
 
     // Update grid uniforms
     if (options.lineColor) gridLineColor.set(options.lineColor);
@@ -996,6 +958,26 @@ export async function addTextBillboard(billboardData) {
     });
 }
 
+export function removeTextBillboard(billboardId) {
+    const index = textBillboards.findIndex(b => b.id === billboardId);
+    if (index >= 0) {
+        const billboard = textBillboards[index];
+        billboard.vertexBuffer?.destroy();
+        billboard.indexBuffer?.destroy();
+        billboard.texture?.destroy();
+        textBillboards.splice(index, 1);
+    }
+}
+
+export function clearAllTextBillboards() {
+    for (const billboard of textBillboards) {
+        billboard.vertexBuffer?.destroy();
+        billboard.indexBuffer?.destroy();
+        billboard.texture?.destroy();
+    }
+    textBillboards.length = 0;
+}
+
 // ============================================================================
 // Frame Timing Callback
 // ============================================================================
@@ -1064,24 +1046,4 @@ export function disposeWebGPU_Canvas() {
 
     device = null;
     dotNetRef = null;
-}
-
-export function removeTextBillboard(billboardId) {
-    const index = textBillboards.findIndex(b => b.id === billboardId);
-    if (index >= 0) {
-        const billboard = textBillboards[index];
-        billboard.vertexBuffer?.destroy();
-        billboard.indexBuffer?.destroy();
-        billboard.texture?.destroy();
-        textBillboards.splice(index, 1);
-    }
-}
-
-export function clearAllTextBillboards() {
-    for (const billboard of textBillboards) {
-        billboard.vertexBuffer?.destroy();
-        billboard.indexBuffer?.destroy();
-        billboard.texture?.destroy();
-    }
-    textBillboards.length = 0;
 }

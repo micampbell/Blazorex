@@ -47,7 +47,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         MinDistance = 0.5,
         ConstrainDistance = true,
         OrbitSensitivity = 0.003,
-        ZoomSensitivity = 0.001,
+        ZoomSensitivity = 0.003,
         PanSensitivity = 0.007,
         PanSpeedMultiplier = 3.0
     };
@@ -503,11 +503,6 @@ public class BugViewerOptions : INotifyPropertyChanged
         lineWidthX = (float)LineWidthX,
         lineWidthY = (float)LineWidthY,
         sampleCount = SampleCount,
-        projectionType = IsProjectionCamera,
-        fov = (float)Fov,
-        orthoSize = (float)OrthoSize,
-        zNear = (float)ZNear,
-        zFar = (float)ZFar,
         gridSize = (float)GridSize,
         gridSpacing = (float)GridSpacing
     };
