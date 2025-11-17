@@ -200,6 +200,7 @@ const gridSpacingUniform = new Float32Array(gridUniformArray, 40, 1);
 // Grid configuration (updated from C#)
 let gridSize = 20.0;
 let gridSpacing = 1.0;
+let zIsUp = false;
 
 // Render settings (updated from C#)
 let colorFormat = 'bgra8unorm';
@@ -351,12 +352,16 @@ function createGridGeometry() {
     if (gridVertexBuffer) gridVertexBuffer.destroy();
     if (gridIndexBuffer) gridIndexBuffer.destroy();
 
+    var yNeg = zIsUp ? -gridSize : -0.01;
+    var zNeg = zIsUp ? -0.01 : -gridSize;
+    var yPos = zIsUp ? gridSize : -0.01;
+    var zPos = zIsUp ? -0.01 : gridSize;
     // Create grid geometry
     const vertexArray = new Float32Array([
-        -gridSize, -0.5, -gridSize, 0, 0,
-        gridSize, -0.5, -gridSize, 100, 0,
-        -gridSize, -0.5, gridSize, 0, 100,
-        gridSize, -0.5, gridSize, 100, 100,
+        -gridSize, yNeg, zNeg, 0, 0,
+        gridSize, yNeg, zNeg, 100, 0,
+        -gridSize, yPos, zPos, 0, 100,
+        gridSize, yPos, zPos, 100, 100,
     ]);
 
     gridVertexBuffer = device.createBuffer({
@@ -604,6 +609,12 @@ export function writeProjectionMatrix(matrixArray) {
 }
 
 export function updateDisplayOptions(options) {
+    let gridChanged = false;
+    if (zIsUp != options.zIsUp)
+    {
+        zIsUp = options.zIsUp
+        gridChanged = true
+    }
     if (typeof options.sampleCount === 'number') sampleCount = options.sampleCount;
 
     // Update grid uniforms
@@ -613,7 +624,6 @@ export function updateDisplayOptions(options) {
         gridLineWidth.set([options.lineWidthX, options.lineWidthY]);
     }
 
-    let gridChanged = false;
     if (typeof options.gridSize === 'number' && options.gridSize !== gridSize) {
         gridSize = options.gridSize;
         gridChanged = true;

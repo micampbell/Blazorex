@@ -504,6 +504,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         lineWidthY = (float)LineWidthY,
         sampleCount = SampleCount,
         gridSize = (float)GridSize,
-        gridSpacing = (float)GridSpacing
+        gridSpacing = (float)GridSpacing,
+        zIsUp = ZIsUp,
     };
 }
