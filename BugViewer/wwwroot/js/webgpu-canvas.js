@@ -202,6 +202,11 @@ let gridSize = 20.0;
 let gridSpacing = 1.0;
 let zIsUp = false;
 
+// Coordinate axes
+let showCoordinates = true;
+let coordinateAxes = null;
+let axisExtent = 100.0;
+
 // Render settings (updated from C#)
 let colorFormat = 'bgra8unorm';
 let depthFormat = 'depth24plus';
@@ -287,6 +292,7 @@ async function initWebGPU() {
     });
 
     await initGrid();
+    await initCoordinateAxes();
 }
 
 async function initGrid() {
@@ -345,6 +351,114 @@ async function initGrid() {
 
     createGridGeometry();
     updateGridUniforms();
+}
+
+async function initCoordinateAxes() {
+    if (!showCoordinates) return;
+
+    const axisData = createAxisGeometry();
+    
+    const posBuffer = createBuffer(axisData.vertices, GPUBufferUsage.VERTEX);
+    const colorBuffer = createBuffer(axisData.colors, GPUBufferUsage.VERTEX);
+    const thicknessBuffer = createBuffer(axisData.thickness, GPUBufferUsage.VERTEX);
+    const uvBuffer = createBuffer(axisData.uvs, GPUBufferUsage.VERTEX);
+    const endPosBuffer = createBuffer(axisData.endPositions, GPUBufferUsage.VERTEX);
+    const fadeBuffer = createBuffer(axisData.fades, GPUBufferUsage.VERTEX);
+    const indexBuffer = createBuffer(axisData.indices, GPUBufferUsage.INDEX, Uint16Array);
+
+    const shaderModule = device.createShaderModule({ label: 'Coordinate Axes Shader', code: BILLBOARD_LINE_SHADER });
+
+    const vertexBufferLayout = [
+        { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] },
+        { arrayStride: 16, attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x4' }] },
+        { arrayStride: 4, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32' }] },
+        { arrayStride: 8, attributes: [{ shaderLocation: 3, offset: 0, format: 'float32x2' }] },
+        { arrayStride: 12, attributes: [{ shaderLocation: 4, offset: 0, format: 'float32x3' }] },
+        { arrayStride: 4, attributes: [{ shaderLocation: 5, offset: 0, format: 'float32' }] }
+    ];
+
+    const pipeline = await device.createRenderPipelineAsync({
+        label: 'Coordinate Axes Pipeline',
+        layout: device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout] }),
+        vertex: { module: shaderModule, entryPoint: 'vertexMain', buffers: vertexBufferLayout },
+        fragment: {
+            module: shaderModule,
+            entryPoint: 'fragmentMain',
+            targets: [{
+                format: `${colorFormat}-srgb`,
+                blend: {
+                    color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                    alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+                }
+            }]
+        },
+        depthStencil: {
+            format: depthFormat,
+            depthWriteEnabled: true,
+            depthCompare: 'less-equal'
+        },
+        multisample: { count: sampleCount },
+        primitive: { topology: 'triangle-list', cullMode: 'none' }
+    });
+
+    coordinateAxes = {
+        posBuffer,
+        colorBuffer,
+        thicknessBuffer,
+        uvBuffer,
+        endPosBuffer,
+        fadeBuffer,
+        indexBuffer,
+        indexCount: axisData.indices.length,
+        pipeline
+    };
+}
+
+function createAxisGeometry() {
+    const vertices = [];
+    const colors = [];
+    const thickness = [];
+    const uvs = [];
+    const endPositions = [];
+    const fades = [];
+    const indices = [];
+
+    const lineThickness = 0.002;
+    const axes = [
+        { start: [0, 0, 0], end: [axisExtent, 0, 0], color: [1, 0, 0, 1], fade: 0 },
+        { start: [0, 0, 0], end: [-axisExtent, 0, 0], color: [0.5, 0, 0, 1], fade: 1 },
+        { start: [0, 0, 0], end: [0, axisExtent, 0], color: [0, 1, 0, 1], fade: 0 },
+        { start: [0, 0, 0], end: [0, -axisExtent, 0], color: [0, 0.5, 0, 1], fade: 1 },
+        { start: [0, 0, 0], end: [0, 0, axisExtent], color: [0, 0, 1, 1], fade: 0 },
+        { start: [0, 0, 0], end: [0, 0, -axisExtent], color: [0, 0, 0.5, 1], fade: 1 }
+    ];
+
+    let vertexOffset = 0;
+    for (const axis of axes) {
+        for (let i = 0; i < 4; i++) {
+            vertices.push(...axis.start);
+            colors.push(...axis.color);
+            thickness.push(lineThickness);
+            endPositions.push(...axis.end);
+            fades.push(axis.fade);
+        }
+        uvs.push(0, -0.5, 1, -0.5, 0, 0.5, 1, 0.5);
+        indices.push(
+            vertexOffset + 0, vertexOffset + 1, vertexOffset + 2,
+            vertexOffset + 1, vertexOffset + 3, vertexOffset + 2
+        );
+        vertexOffset += 4;
+    }
+
+    return {
+        vertices: new Float32Array(vertices),
+        colors: new Float32Array(colors),
+        thickness: new Float32Array(thickness),
+        uvs: new Float32Array(uvs),
+        endPositions: new Float32Array(endPositions),
+        fades: new Float32Array(fades),
+        indices: new Uint16Array(indices)
+    };
 }
 
 function createGridGeometry() {
@@ -443,7 +557,18 @@ function renderFrame() {
         pass.setIndexBuffer(gridIndexBuffer, 'uint32');
         pass.drawIndexed(6);
     }
-
+    if (showCoordinates) {
+        pass.setPipeline(coordinateAxes.pipeline);
+        pass.setBindGroup(0, frameBindGroup);
+        pass.setVertexBuffer(0, coordinateAxes.posBuffer);
+        pass.setVertexBuffer(1, coordinateAxes.colorBuffer);
+        pass.setVertexBuffer(2, coordinateAxes.thicknessBuffer);
+        pass.setVertexBuffer(3, coordinateAxes.uvBuffer);
+        pass.setVertexBuffer(4, coordinateAxes.endPosBuffer);
+        pass.setVertexBuffer(5, coordinateAxes.fadeBuffer);
+        pass.setIndexBuffer(coordinateAxes.indexBuffer, 'uint16');
+        pass.drawIndexed(coordinateAxes.indexCount);
+    }
     // Draw transparent meshes
     for (const mesh of meshes.filter(m => m.isTransparent)) {
         if (!mesh.pipeline || !mesh.vertexBuffer || !mesh.indexBuffer) continue;
@@ -610,12 +735,30 @@ export function writeProjectionMatrix(matrixArray) {
 
 export function updateDisplayOptions(options) {
     let gridChanged = false;
-    if (zIsUp != options.zIsUp)
-    {
-        zIsUp = options.zIsUp
-        gridChanged = true
+    if (zIsUp !== options.zIsUp) {
+        zIsUp = options.zIsUp;
+        gridChanged = true;
     }
     if (typeof options.sampleCount === 'number') sampleCount = options.sampleCount;
+
+    // Handle coordinate axes visibility
+    if (typeof options.showCoordinates === 'boolean' && showCoordinates !== options.showCoordinates) {
+        showCoordinates = options.showCoordinates;
+        if (device) {
+            if (showCoordinates && !coordinateAxes) {
+                initCoordinateAxes();
+            } else if (!showCoordinates && coordinateAxes) {
+                coordinateAxes.posBuffer?.destroy();
+                coordinateAxes.colorBuffer?.destroy();
+                coordinateAxes.thicknessBuffer?.destroy();
+                coordinateAxes.uvBuffer?.destroy();
+                coordinateAxes.endPosBuffer?.destroy();
+                coordinateAxes.fadeBuffer?.destroy();
+                coordinateAxes.indexBuffer?.destroy();
+                coordinateAxes = null;
+            }
+        }
+    }
 
     // Update grid uniforms
     if (options.lineColor) gridLineColor.set(options.lineColor);
@@ -1056,4 +1199,4 @@ export function disposeWebGPU_Canvas() {
 
     device = null;
     dotNetRef = null;
-}
+}// ============================================================================

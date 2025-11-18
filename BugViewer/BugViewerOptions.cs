@@ -49,7 +49,8 @@ public class BugViewerOptions : INotifyPropertyChanged
         OrbitSensitivity = 0.003,
         ZoomSensitivity = 0.003,
         PanSensitivity = 0.007,
-        PanSpeedMultiplier = 3.0
+        PanSpeedMultiplier = 3.0,
+        ShowCoordinates = true
     };
     public void ResetToDefault()
     {
@@ -81,6 +82,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         PanSpeedMultiplier = Default.PanSpeedMultiplier;
         GridSize = Default.GridSize;
         GridSpacing = Default.GridSpacing;
+        ShowCoordinates = Default.ShowCoordinates;
     }
 
     private string _clearColor;
@@ -500,6 +502,21 @@ public class BugViewerOptions : INotifyPropertyChanged
         }
     }
 
+    private bool _showCoordinates;
+    /// <summary>Whether to show coordinate axes (X=red, Y=green, Z=blue).</summary>
+    public bool ShowCoordinates
+    {
+        get => _showCoordinates;
+        set
+        {
+            if (_showCoordinates != value)
+            {
+                _showCoordinates = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     private bool ChangeOccurrred(double v1, double v2)
     {
         return Math.Abs(v1 - v2) > 1e-3;
@@ -518,5 +535,6 @@ public class BugViewerOptions : INotifyPropertyChanged
         gridSize = (float)GridSize,
         gridSpacing = (float)GridSpacing,
         zIsUp = ZIsUp,
+        showCoordinates = ShowCoordinates,
     };
 }
