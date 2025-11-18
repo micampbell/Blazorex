@@ -280,6 +280,18 @@ public class BugViewerOptions : INotifyPropertyChanged
         }
     }
 
+    internal void AdjustCameraProjectionParameters()
+    {
+        if (IsProjectionCamera) // switching to perspective
+        {   // adjust the FOV so parts appear the same size
+            Fov = Math.Clamp(Fov, 1.0, 120.0);
+        }
+        else // switching to orthographic
+        {   // adjust the OrthoSize so parts appear the same size
+            OrthoSize = Math.Max(OrthoSize, 0.1);
+        }
+    }
+
     private double _zNear;
     /// <summary>Near clipping plane distance.</summary>
     public double ZNear

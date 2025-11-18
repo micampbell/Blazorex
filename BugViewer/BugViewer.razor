@@ -765,6 +765,8 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 			Camera.SwapCameraUp();
 			await _module.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
 		}
+		if (e.PropertyName == "IsProjectionCamera")
+			Options.AdjustCameraProjectionParameters();
 		await SendOptionsToJavaScriptAsync(false);
 		await InvokeAsync(StateHasChanged);
 	}

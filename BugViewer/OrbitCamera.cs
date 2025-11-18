@@ -333,17 +333,36 @@ public class OrbitCamera
 
     internal void SwapCameraUp()
     {
-        if (_options.ZIsUp) // then swapping from Y is up to Z is up
+        // Get the current camera position relative to the target
+        var pos = Position - Target;
+
+        if (_options.ZIsUp) // Swapping from Y-up to Z-up
         {
-            var newPolar = Math.Asin(Math.Cos(PolarAngle) * Math.Cos(AzimuthAngle));
-            AzimuthAngle =Math.Asin(-Math.Sin(PolarAngle) / Math.Cos(newPolar));
+            // pos.X = -D * cos(p) * sin(a)
+            // pos.Y =  D * sin(p)
+            // pos.Z =  D * cos(p) * cos(a)
+            // New coordinate system (Z-up)
+            // x' = z
+            // y' = -x
+            // z' = y
+            var newPolar = Math.Asin(pos.Y / (float)Distance);
+            var newAzimuth = Math.Atan2(-pos.X, pos.Z);
             PolarAngle = newPolar;
+            AzimuthAngle = newAzimuth;
         }
-        else // then Z to Y
+        else // Swapping from Z-up to Y-up
         {
-            var newPolar = Math.Asin(-Math.Cos(PolarAngle) * Math.Sin(AzimuthAngle));
-            AzimuthAngle = Math.Acos(Math.Sin(PolarAngle) / Math.Cos(newPolar));
+            // pos.X =  D * cos(p) * cos(a)
+            // pos.Y =  D * cos(p) * sin(a)
+            // pos.Z =  D * sin(p)
+            // New coordinate system (Y-up)
+            // x' = -y
+            // y' = z
+            // z' = x
+            var newPolar = Math.Asin(pos.Z / (float)Distance);
+            var newAzimuth = Math.Atan2(-pos.Y, pos.X);
             PolarAngle = newPolar;
+            AzimuthAngle = newAzimuth;
         }
     }
     #endregion
