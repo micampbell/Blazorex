@@ -30,6 +30,31 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	@* Settings panel overlays in top-right corner *@
 	<OptionsPanel Options="Options" @bind-IsExpanded="_isOptionsPanelExpanded" />
 
+	@* Camera control buttons panel - below options panel *@
+	<div class="camera-controls-panel">
+		<button class="camera-btn reset-btn" @onclick="HandleCameraReset" title="Reset Camera">
+			🔄
+		</button>
+		<button class="camera-btn" @onclick="@(() => HandleCameraCardinalView(CardinalDirection.NegativeX))" title="View from -X">
+			-X
+		</button>
+		<button class="camera-btn" @onclick="@(() => HandleCameraCardinalView(CardinalDirection.PositiveX))" title="View from +X">
+			+X
+		</button>
+		<button class="camera-btn" @onclick="@(() => HandleCameraCardinalView(CardinalDirection.NegativeY))" title="View from -Y">
+			-Y
+		</button>
+		<button class="camera-btn" @onclick="@(() => HandleCameraCardinalView(CardinalDirection.PositiveY))" title="View from +Y">
+			+Y
+		</button>
+		<button class="camera-btn" @onclick="@(() => HandleCameraCardinalView(CardinalDirection.NegativeZ))" title="View from -Z">
+			-Z
+		</button>
+		<button class="camera-btn" @onclick="@(() => HandleCameraCardinalView(CardinalDirection.PositiveZ))" title="View from +Z">
+			+Z
+		</button>
+	</div>
+
 	@* Control instructions panel - shows when ? key is held *@
 	@if (_showControls)
 	{
@@ -198,6 +223,70 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 
 		50% {
 			opacity: 1;
+		}
+	}
+
+	/* Camera control buttons panel */
+	.camera-controls-panel {
+		position: absolute;
+		top: 70px;
+		right: 10px;
+		background: rgba(30, 30, 30, 0.95);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		border-radius: 12px;
+		backdrop-filter: blur(10px);
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+		z-index: 999;
+		padding: 8px;
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 6px;
+		min-width: 200px;
+	}
+
+	.camera-btn {
+		background: rgba(79, 195, 247, 0.15);
+		border: 1px solid rgba(79, 195, 247, 0.3);
+		border-radius: 6px;
+		color: #4fc3f7;
+		font-size: 12px;
+		font-weight: 600;
+		padding: 8px 4px;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+		white-space: nowrap;
+	}
+
+		.camera-btn:hover {
+			background: rgba(79, 195, 247, 0.25);
+			border-color: rgba(79, 195, 247, 0.5);
+			transform: translateY(-1px);
+			box-shadow: 0 2px 8px rgba(79, 195, 247, 0.3);
+		}
+
+		.camera-btn:active {
+			transform: translateY(0);
+			box-shadow: 0 1px 4px rgba(79, 195, 247, 0.2);
+		}
+
+		.camera-btn.reset-btn {
+			background: rgba(255, 167, 38, 0.15);
+			border-color: rgba(255, 167, 38, 0.3);
+			color: #ffa726;
+			font-size: 16px;
+		}
+
+			.camera-btn.reset-btn:hover {
+				background: rgba(255, 167, 38, 0.25);
+				border-color: rgba(255, 167, 38, 0.5);
+				box-shadow: 0 2px 8px rgba(255, 167, 38, 0.3);
+			}
+
+	@@media (max-width: 500px) {
+		.camera-controls-panel {
+			grid-template-columns: repeat(3, 1fr);
+			min-width: 150px;
 		}
 	}
 </style>
@@ -739,6 +828,32 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 
 		// Send updated view matrix to JavaScript
 		_module?.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
+	}
+
+	private async Task HandleCameraReset()
+	{
+		if (Camera is null) return;
+		
+		Camera.Reset();
+		
+		// Send updated view matrix to JavaScript
+		if (_module != null && _ready)
+		{
+			await _module.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
+		}
+	}
+
+	private async Task HandleCameraCardinalView(CardinalDirection direction)
+	{
+		if (Camera is null) return;
+		
+		Camera.SetCardinalView(direction);
+		
+		// Send updated view matrix to JavaScript
+		if (_module != null && _ready)
+		{
+			await _module.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
+		}
 	}
 	#endregion
 	internal static IEnumerable<float> ColorToJavaScript(Color c)

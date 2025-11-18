@@ -18,6 +18,19 @@ public struct Ray
 }
 
 /// <summary>
+/// Cardinal directions for camera positioning.
+/// </summary>
+public enum CardinalDirection
+{
+    PositiveX,
+    NegativeX,
+    PositiveY,
+    NegativeY,
+    PositiveZ,
+    NegativeZ
+}
+
+/// <summary>
 /// Orbit camera for 3D scene navigation with mouse/touch controls.
 /// Handles rotation (orbit), zoom (distance), and pan (target movement).
 /// </summary>
@@ -255,6 +268,94 @@ public class OrbitCamera
         AzimuthAngle = 0;
         Distance = 10.0;
         Target = Vector3.Zero;
+    }
+
+    /// <summary>
+    /// Sets the camera to view along a cardinal direction.
+    /// </summary>
+    /// <param name="direction">The cardinal direction to view from</param>
+    public void SetCardinalView(CardinalDirection direction)
+    {
+        switch (direction)
+        {
+            case CardinalDirection.PositiveX:
+                if (_options.ZIsUp)
+                {
+                    AzimuthAngle = Math.PI / 2; // 90°
+                    PolarAngle = 0;
+                }
+                else // Y is up
+                {
+                    AzimuthAngle = Math.PI / 2; // 90°
+                    PolarAngle = 0;
+                }
+                break;
+
+            case CardinalDirection.NegativeX:
+                if (_options.ZIsUp)
+                {
+                    AzimuthAngle = -Math.PI / 2; // -90°
+                    PolarAngle = 0;
+                }
+                else // Y is up
+                {
+                    AzimuthAngle = -Math.PI / 2; // -90°
+                    PolarAngle = 0;
+                }
+                break;
+
+            case CardinalDirection.PositiveY:
+                if (_options.ZIsUp)
+                {
+                    AzimuthAngle = 0;
+                    PolarAngle = 0;
+                }
+                else // Y is up
+                {
+                    AzimuthAngle = 0;
+                    PolarAngle = Math.PI / 2; // Looking down from above
+                }
+                break;
+
+            case CardinalDirection.NegativeY:
+                if (_options.ZIsUp)
+                {
+                    AzimuthAngle = Math.PI; // 180°
+                    PolarAngle = 0;
+                }
+                else // Y is up
+                {
+                    AzimuthAngle = 0;
+                    PolarAngle = -Math.PI / 2; // Looking up from below
+                }
+                break;
+
+            case CardinalDirection.PositiveZ:
+                if (_options.ZIsUp)
+                {
+                    AzimuthAngle = 0;
+                    PolarAngle = Math.PI / 2; // Looking down from above
+                }
+                else // Y is up
+                {
+                    AzimuthAngle = 0;
+                    PolarAngle = 0;
+                }
+                break;
+
+            case CardinalDirection.NegativeZ:
+                if (_options.ZIsUp)
+                {
+                    AzimuthAngle = 0;
+                    PolarAngle = -Math.PI / 2; // Looking up from below
+                }
+                else // Y is up
+                {
+                    AzimuthAngle = Math.PI; // 180°
+                    PolarAngle = 0;
+                }
+                break;
+        }
     }
     #endregion
 
