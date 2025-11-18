@@ -355,11 +355,11 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		{
 			throw new InvalidOperationException("WebGPU is not ready. Wait for initialization.");
 		}
-		
+
 		// Render text to bitmap in C# instead of JavaScript
 		var billboardData = TextBillboardRenderer.CreateBillboardData(
 			id, text, position, backgroundColor, textColor);
-		
+
 		await _module.InvokeVoidAsync("addTextBillboard", billboardData);
 	}
 
@@ -654,7 +654,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		{
 			// Hot-update with the same normalized shape
 			await _module.InvokeVoidAsync("updateDisplayOptions", Options.ToJavascriptOptions());
-			
+
 			// Recompute and send projection matrix when options change
 			// (in case projection-related options like FOV, ortho size, etc. changed)
 			await SendProjectionMatrixToJavaScriptAsync();
@@ -674,10 +674,10 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	{
 		_ready = true;
 		_error = null;
-		
+
 		// Send initial projection matrix after WebGPU is ready
 		await SendProjectionMatrixToJavaScriptAsync();
-		
+
 		StateHasChanged();
 	}
 
@@ -749,7 +749,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 		yield return c.A / 255f;
 	}
 	internal static IEnumerable<float> ColorToJavaScript(string c, double transparency)
-	{ 
+	{
 		c = c.Substring(4);
 		c = c.TrimEnd(')');
 		var cArray = c.Split(',');
@@ -760,6 +760,11 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	}
 	private async void OnOptionsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
 	{
+		if (e.PropertyName == "ZIsUp")
+		{
+			Camera.SwapCameraUp();
+			await _module.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
+		}
 		await SendOptionsToJavaScriptAsync(false);
 		await InvokeAsync(StateHasChanged);
 	}

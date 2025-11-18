@@ -227,11 +227,19 @@ public class OrbitCamera
 
     private void UpdateMatrices()
     {
-        cameraMatrix
-            = Matrix4x4.CreateTranslation(0, 0, (float)Distance)
-            * Matrix4x4.CreateRotationX(-(float)PolarAngle)
-            * Matrix4x4.CreateRotationY(-(float)AzimuthAngle)
-            * Matrix4x4.CreateTranslation(Target);
+        if (_options.ZIsUp)
+            cameraMatrix
+                = Matrix4x4.CreateTranslation(0, 0, (float)Distance)
+                * Matrix4x4.CreateRotationZ(0.5f * MathF.PI)
+                * Matrix4x4.CreateRotationY(0.5f * MathF.PI - (float)PolarAngle)
+                * Matrix4x4.CreateRotationZ(-(float)AzimuthAngle)
+                * Matrix4x4.CreateTranslation(Target);
+        else // then Y is up
+            cameraMatrix
+                = Matrix4x4.CreateTranslation(0, 0, (float)Distance)
+                * Matrix4x4.CreateRotationX(-(float)PolarAngle)
+                * Matrix4x4.CreateRotationY(-(float)AzimuthAngle)
+                * Matrix4x4.CreateTranslation(Target);
         // View matrix is inverse of camera matrix
         Matrix4x4.Invert(cameraMatrix, out viewMatrix);
         position = new Vector3(cameraMatrix.M41, cameraMatrix.M42, cameraMatrix.M43);
@@ -303,7 +311,7 @@ public class OrbitCamera
         float aspectRatio = (float)(screenWidth / screenHeight);
 
         if (_options.IsProjectionCamera)
-            return Matrix4x4.CreatePerspectiveFieldOfView((float)(Math.PI * _options.Fov / 180), 
+            return Matrix4x4.CreatePerspectiveFieldOfView((float)(Math.PI * _options.Fov / 180),
                 aspectRatio, (float)_options.ZNear, (float)_options.ZFar);
         else
             return Matrix4x4.CreateOrthographic((float)_options.OrthoSize * 2 * aspectRatio,
@@ -321,6 +329,22 @@ public class OrbitCamera
               m.M21, m.M22, m.M23, m.M24,
               m.M31, m.M32, m.M33, m.M34,
               m.M41, m.M42, m.M43, m.M44 ];
+    }
+
+    internal void SwapCameraUp()
+    {
+        if (_options.ZIsUp) // then swapping from Y is up to Z is up
+        {
+            var newPolar = Math.Asin(Math.Cos(PolarAngle) * Math.Cos(AzimuthAngle));
+            AzimuthAngle =Math.Asin(-Math.Sin(PolarAngle) / Math.Cos(newPolar));
+            PolarAngle = newPolar;
+        }
+        else // then Z to Y
+        {
+            var newPolar = Math.Asin(-Math.Cos(PolarAngle) * Math.Sin(AzimuthAngle));
+            AzimuthAngle = Math.Acos(Math.Sin(PolarAngle) / Math.Cos(newPolar));
+            PolarAngle = newPolar;
+        }
     }
     #endregion
 }
