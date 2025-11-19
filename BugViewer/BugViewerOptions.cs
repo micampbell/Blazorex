@@ -50,7 +50,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         ZoomSensitivity = 0.003,
         PanSensitivity = 0.007,
         PanSpeedMultiplier = 3.0,
-        ShowCoordinates = true
+        CoordinateThickness = 1
     };
     public void ResetToDefault()
     {
@@ -82,7 +82,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         PanSpeedMultiplier = Default.PanSpeedMultiplier;
         GridSize = Default.GridSize;
         GridSpacing = Default.GridSpacing;
-        ShowCoordinates = Default.ShowCoordinates;
+        CoordinateThickness = Default.CoordinateThickness;
     }
 
     private string _clearColor;
@@ -106,7 +106,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _lineTransparency;
         set
         {
-            if (ChangeOccurrred(_lineTransparency, value))
+            if (ChangeOccurred(_lineTransparency, value))
             {
                 _lineTransparency = value;
                 OnPropertyChanged();
@@ -135,7 +135,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _baseTransparency;
         set
         {
-            if (ChangeOccurrred(_baseTransparency, value))
+            if (ChangeOccurred(_baseTransparency, value))
             {
                 _baseTransparency = value;
                 OnPropertyChanged();
@@ -168,7 +168,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         set
         {
             var clamp = Math.Clamp(value, 0.0, 1.0);
-            if (ChangeOccurrred(_lineWidthX, clamp))
+            if (ChangeOccurred(_lineWidthX, clamp))
             {
                 _lineWidthX = clamp;
                 OnPropertyChanged();
@@ -183,7 +183,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         set
         {
             var clamp = Math.Clamp(value, 0.0, 1.0);
-            if (ChangeOccurrred(_lineWidthY, clamp))
+            if (ChangeOccurred(_lineWidthY, clamp))
             {
                 _lineWidthY = clamp;
                 OnPropertyChanged();
@@ -201,7 +201,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _gridSize;
         set
         {
-            if (ChangeOccurrred(_gridSize, value))
+            if (ChangeOccurred(_gridSize, value))
             {
                 _gridSize = value;
                 OnPropertyChanged();
@@ -215,7 +215,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _gridSpacing;
         set
         {
-            if (ChangeOccurrred(_gridSpacing, value))
+            if (ChangeOccurred(_gridSpacing, value))
             {
                 _gridSpacing = value;
                 OnPropertyChanged();
@@ -259,7 +259,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _fov;
         set
         {
-            if (ChangeOccurrred(_fov, value))
+            if (ChangeOccurred(_fov, value))
             {
                 _fov = value;
                 OnPropertyChanged();
@@ -274,7 +274,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _orthoSize;
         set
         {
-            if (ChangeOccurrred(value, _orthoSize))
+            if (ChangeOccurred(value, _orthoSize))
             {
                 _orthoSize = value;
                 OnPropertyChanged();
@@ -301,7 +301,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _zNear;
         set
         {
-            if (ChangeOccurrred(_zNear, value))
+            if (ChangeOccurred(_zNear, value))
             {
                 _zNear = value;
                 OnPropertyChanged();
@@ -315,7 +315,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _zFar;
         set
         {
-            if (ChangeOccurrred(_zFar, value))
+            if (ChangeOccurred(_zFar, value))
             {
                 _zFar = value;
                 OnPropertyChanged();
@@ -331,7 +331,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _maxPolar;
         set
         {
-            if (ChangeOccurrred(_maxPolar, value))
+            if (ChangeOccurred(_maxPolar, value))
             {
                 _maxPolar = value;
                 OnPropertyChanged();
@@ -346,7 +346,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _minPolar;
         set
         {
-            if (ChangeOccurrred(_minPolar, value))
+            if (ChangeOccurred(_minPolar, value))
             {
                 _minPolar = value;
                 OnPropertyChanged();
@@ -361,7 +361,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _maxAzimuth;
         set
         {
-            if (ChangeOccurrred(_maxAzimuth, value))
+            if (ChangeOccurred(_maxAzimuth, value))
             {
                 _maxAzimuth = value;
                 OnPropertyChanged();
@@ -376,7 +376,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _minAzimuth;
         set
         {
-            if (ChangeOccurrred(_minAzimuth, value))
+            if (ChangeOccurred(_minAzimuth, value))
             {
                 _minAzimuth = value;
                 OnPropertyChanged();
@@ -414,7 +414,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _maxDistance;
         set
         {
-            if (ChangeOccurrred(_maxDistance, value))
+            if (ChangeOccurred(_maxDistance, value))
             {
                 _maxDistance = value;
                 OnPropertyChanged();
@@ -429,7 +429,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _minDistance;
         set
         {
-            if (ChangeOccurrred(_minDistance, value))
+            if (ChangeOccurred(_minDistance, value))
             {
                 _minDistance = value;
                 OnPropertyChanged();
@@ -449,7 +449,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _orbitSensitivity;
         set
         {
-            if (ChangeOccurrred(_orbitSensitivity, value))
+            if (ChangeOccurred(_orbitSensitivity, value))
             {
                 _orbitSensitivity = value;
                 OnPropertyChanged();
@@ -464,7 +464,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _zoomSensitivity;
         set
         {
-            if (ChangeOccurrred(_zoomSensitivity, value))
+            if (ChangeOccurred(_zoomSensitivity, value))
             {
                 _zoomSensitivity = value;
                 OnPropertyChanged();
@@ -479,7 +479,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _panSensitivity;
         set
         {
-            if (ChangeOccurrred(_panSensitivity, value))
+            if (ChangeOccurred(_panSensitivity, value))
             {
                 _panSensitivity = value;
                 OnPropertyChanged();
@@ -494,7 +494,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _panSpeedMultiplier;
         set
         {
-            if (ChangeOccurrred(_panSpeedMultiplier, value))
+            if (ChangeOccurred(_panSpeedMultiplier, value))
             {
                 _panSpeedMultiplier = value;
                 OnPropertyChanged();
@@ -502,22 +502,22 @@ public class BugViewerOptions : INotifyPropertyChanged
         }
     }
 
-    private bool _showCoordinates;
+    private double _coordThick;
     /// <summary>Whether to show coordinate axes (X=red, Y=green, Z=blue).</summary>
-    public bool ShowCoordinates
+    public double CoordinateThickness
     {
-        get => _showCoordinates;
+        get => _coordThick;
         set
         {
-            if (_showCoordinates != value)
+            if (ChangeOccurred(_coordThick , value))
             {
-                _showCoordinates = value;
+                _coordThick = value;
                 OnPropertyChanged();
             }
         }
     }
 
-    private bool ChangeOccurrred(double v1, double v2)
+    private bool ChangeOccurred(double v1, double v2)
     {
         return Math.Abs(v1 - v2) > 1e-3;
     }
@@ -535,6 +535,6 @@ public class BugViewerOptions : INotifyPropertyChanged
         gridSize = (float)GridSize,
         gridSpacing = (float)GridSpacing,
         zIsUp = ZIsUp,
-        showCoordinates = ShowCoordinates,
+        coordinateThickness = CoordinateThickness,
     };
 }

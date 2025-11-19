@@ -203,7 +203,7 @@ let gridSpacing = 1.0;
 let zIsUp = false;
 
 // Coordinate axes
-let showCoordinates = true;
+let coordinateThickness = 1.0;
 let coordinateAxes = null;
 let axisExtent = 100.0;
 
@@ -233,7 +233,7 @@ export async function initGPU_Canvas(dotnet, canvasEl, options, initialViewMatri
     viewMatrix.set(initialViewMatrix);
 
     // Apply options
-    updateDisplayOptions(options);
+    await updateDisplayOptions(options);
 
     // Set up resize observer
     setupResizeObserver();
@@ -354,10 +354,8 @@ async function initGrid() {
 }
 
 async function initCoordinateAxes() {
-    if (!showCoordinates) return;
 
-    const axisData = createAxisGeometry();
-    
+    const axisData = createAxisGeometry();    
     const posBuffer = createBuffer(axisData.vertices, GPUBufferUsage.VERTEX);
     const colorBuffer = createBuffer(axisData.colors, GPUBufferUsage.VERTEX);
     const thicknessBuffer = createBuffer(axisData.thickness, GPUBufferUsage.VERTEX);
@@ -423,7 +421,7 @@ function createAxisGeometry() {
     const fades = [];
     const indices = [];
 
-    const lineThickness = 0.002;
+    const lineThickness = coordinateThickness;
     const axes = [
         { start: [0, 0, 0], end: [axisExtent, 0, 0], color: [1, 0, 0, 1], fade: 0 },
         { start: [0, 0, 0], end: [-axisExtent, 0, 0], color: [0.5, 0, 0, 1], fade: 1 },
@@ -557,7 +555,7 @@ function renderFrame() {
         pass.setIndexBuffer(gridIndexBuffer, 'uint32');
         pass.drawIndexed(6);
     }
-    if (showCoordinates) {
+    if (coordinateThickness && coordinateAxes) {
         pass.setPipeline(coordinateAxes.pipeline);
         pass.setBindGroup(0, frameBindGroup);
         pass.setVertexBuffer(0, coordinateAxes.posBuffer);
@@ -733,7 +731,7 @@ export function writeProjectionMatrix(matrixArray) {
     projectionMatrix.set(matrixArray);
 }
 
-export function updateDisplayOptions(options) {
+export async function updateDisplayOptions(options) {
     let gridChanged = false;
     if (zIsUp !== options.zIsUp) {
         zIsUp = options.zIsUp;
@@ -742,12 +740,9 @@ export function updateDisplayOptions(options) {
     if (typeof options.sampleCount === 'number') sampleCount = options.sampleCount;
 
     // Handle coordinate axes visibility
-    if (typeof options.showCoordinates === 'boolean' && showCoordinates !== options.showCoordinates) {
-        showCoordinates = options.showCoordinates;
+    if (typeof options.coordinateThickness === 'number' && coordinateThickness !== options.coordinateThickness) {
+        coordinateThickness = options.coordinateThickness;
         if (device) {
-            if (showCoordinates && !coordinateAxes) {
-                initCoordinateAxes();
-            } else if (!showCoordinates && coordinateAxes) {
                 coordinateAxes.posBuffer?.destroy();
                 coordinateAxes.colorBuffer?.destroy();
                 coordinateAxes.thicknessBuffer?.destroy();
@@ -756,6 +751,8 @@ export function updateDisplayOptions(options) {
                 coordinateAxes.fadeBuffer?.destroy();
                 coordinateAxes.indexBuffer?.destroy();
                 coordinateAxes = null;
+            if (coordinateThickness > 0.0) {
+                await initCoordinateAxes();
             }
         }
     }
@@ -1199,4 +1196,4 @@ export function disposeWebGPU_Canvas() {
 
     device = null;
     dotNetRef = null;
-}// ============================================================================
+}
