@@ -205,7 +205,7 @@ let zIsUp = false;
 // Coordinate axes
 let coordinateThickness = 1.0;
 let coordinateAxes = null;
-let axisExtent = 100.0;
+let axisExtent = gridSize;
 
 // Render settings (updated from C#)
 let colorFormat = 'bgra8unorm';
@@ -766,7 +766,22 @@ export async function updateDisplayOptions(options) {
 
     if (typeof options.gridSize === 'number' && options.gridSize !== gridSize) {
         gridSize = options.gridSize;
+        axisExtent = gridSize;  // Update axis extent to match grid size
         gridChanged = true;
+        // Recreate coordinate axes with new extent if they exist
+        if (coordinateAxes) {
+            coordinateAxes.posBuffer?.destroy();
+            coordinateAxes.colorBuffer?.destroy();
+            coordinateAxes.thicknessBuffer?.destroy();
+            coordinateAxes.uvBuffer?.destroy();
+            coordinateAxes.endPosBuffer?.destroy();
+            coordinateAxes.fadeBuffer?.destroy();
+            coordinateAxes.indexBuffer?.destroy();
+            coordinateAxes = null;
+            if (coordinateThickness > 0.0) {
+                await initCoordinateAxes();
+            }
+        }
     }
     if (typeof options.gridSpacing === 'number' && options.gridSpacing !== gridSpacing) {
         gridSpacing = options.gridSpacing;
