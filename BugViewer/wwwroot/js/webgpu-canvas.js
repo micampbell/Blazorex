@@ -203,6 +203,7 @@ let gridSize = 20.0;
 let gridSpacing = 1.0;
 let zIsUp = false;
 let gridDepthWriteEnabled = false;  // New variable to control depth writing
+let gridIsTransparent = false;
 
 // Coordinate axes
 let coordinateThickness = 1.0;
@@ -299,26 +300,7 @@ async function initWebGPU() {
 
 async function initGrid() {
     // Create grid pipeline
-    await createGridPipeline();
-
-    // Create grid uniform buffer
-    gridUniformBuffer = device.createBuffer({
-        size: gridUniformArray.byteLength,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-    });
-
-    gridBindGroup = device.createBindGroup({
-        label: 'Grid BG',
-        layout: gridBindGroupLayout,
-        entries: [{ binding: 0, resource: { buffer: gridUniformBuffer } }]
-    });
-
-    createGridGeometry();
-    updateGridUniforms();
-}
-
-async function createGridPipeline() {
-    gridBindGroupLayout = device.createBindGroupLayout({
+    const bindGroupLayout = device.createBindGroupLayout({
         label: 'Grid BGL',
         entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }]
     });
@@ -327,7 +309,7 @@ async function createGridPipeline() {
 
     gridPipeline = await device.createRenderPipelineAsync({
         label: 'Grid Pipeline',
-        layout: device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout, gridBindGroupLayout] }),
+        layout: device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout, bindGroupLayout] }),
         vertex: {
             module,
             entryPoint: 'vertexMain',
@@ -352,11 +334,32 @@ async function createGridPipeline() {
         },
         depthStencil: {
             format: depthFormat,
-            depthWriteEnabled: gridDepthWriteEnabled,
+            depthWriteEnabled: !gridIsTransparent,
             depthCompare: 'less-equal'
         },
         multisample: { count: sampleCount }
     });
+
+    // Create grid uniform buffer
+    if (!gridUniformBuffer) {
+        gridUniformBuffer = device.createBuffer({
+            size: gridUniformArray.byteLength,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+    }
+
+
+    if (!gridBindGroup) {
+        gridBindGroup = device.createBindGroup({
+            label: 'Grid BG',
+            layout: bindGroupLayout,
+            entries: [{ binding: 0, resource: { buffer: gridUniformBuffer } }]
+        });
+    }
+
+
+    createGridGeometry();
+    updateGridUniforms();
 }
 
 async function initCoordinateAxes() {
@@ -739,6 +742,7 @@ export function writeProjectionMatrix(matrixArray) {
 
 export async function updateDisplayOptions(options) {
     let gridChanged = false;
+    let needsGridPipelineRecreation = false;
     if (zIsUp !== options.zIsUp) {
         zIsUp = options.zIsUp;
         gridChanged = true;
@@ -749,6 +753,7 @@ export async function updateDisplayOptions(options) {
     if (typeof options.coordinateThickness === 'number' && coordinateThickness !== options.coordinateThickness) {
         coordinateThickness = options.coordinateThickness;
         if (device) {
+            if (coordinateAxes) {
                 coordinateAxes.posBuffer?.destroy();
                 coordinateAxes.colorBuffer?.destroy();
                 coordinateAxes.thicknessBuffer?.destroy();
@@ -757,6 +762,7 @@ export async function updateDisplayOptions(options) {
                 coordinateAxes.fadeBuffer?.destroy();
                 coordinateAxes.indexBuffer?.destroy();
                 coordinateAxes = null;
+            }
             if (coordinateThickness > 0.0) {
                 await initCoordinateAxes();
             }
@@ -764,17 +770,15 @@ export async function updateDisplayOptions(options) {
     }
 
     // Update grid uniforms
-    if (options.lineColor) gridLineColor.set(options.lineColor);
     if (options.baseColor) {
-        gridBaseColor.set(options.baseColor);
-        const newDepthWrite = options.baseColor[3] === 1.0;
-        if (newDepthWrite !== gridDepthWriteEnabled) {
-            gridDepthWriteEnabled = newDepthWrite;
-            if (device) {
-                await createGridPipeline();
-            }
+        const newIsTransparent = options.baseColor[3] < 1.0;
+        if (newIsTransparent !== gridIsTransparent) {
+            gridIsTransparent = newIsTransparent;
+            needsGridPipelineRecreation = true;
         }
+        gridBaseColor.set(options.baseColor);
     }
+    if (options.lineColor) gridLineColor.set(options.lineColor);
     if (typeof options.lineWidthX === 'number' && typeof options.lineWidthY === 'number') {
         gridLineWidth.set([options.lineWidthX, options.lineWidthY]);
     }
@@ -803,12 +807,17 @@ export async function updateDisplayOptions(options) {
         gridChanged = true;
     }
 
-    if (gridChanged && device) {
-        createGridGeometry();
-        updateGridUniforms();
-    } else if (device && gridUniformBuffer) {
-        device.queue.writeBuffer(gridUniformBuffer, 0, gridUniformArray);
+    if (device) {
+        if (needsGridPipelineRecreation) {
+            await initGrid(); // This recreates pipeline and geometry
+        } else if (gridChanged) {
+            createGridGeometry();
+            updateGridUniforms();
+        } else if (gridUniformBuffer) {
+            device.queue.writeBuffer(gridUniformBuffer, 0, gridUniformArray);
+        }
     }
+
 
     // Update clear color
     if (options.clearColor) {
