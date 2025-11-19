@@ -331,7 +331,7 @@ async function initGrid() {
         },
         depthStencil: {
             format: depthFormat,
-            depthWriteEnabled: true,
+            depthWriteEnabled: false,  // Disable depth writing for transparent grid
             depthCompare: 'less-equal'
         },
         multisample: { count: sampleCount }
