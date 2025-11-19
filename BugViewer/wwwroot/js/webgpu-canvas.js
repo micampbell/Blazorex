@@ -191,6 +191,7 @@ let gridVertexBuffer = null;
 let gridIndexBuffer = null;
 let gridUniformBuffer = null;
 let gridBindGroup = null;
+let gridBindGroupLayout = null;
 const gridUniformArray = new ArrayBuffer(16 * Float32Array.BYTES_PER_ELEMENT);
 const gridLineColor = new Float32Array(gridUniformArray, 0, 4);
 const gridBaseColor = new Float32Array(gridUniformArray, 16, 4);
@@ -201,6 +202,7 @@ const gridSpacingUniform = new Float32Array(gridUniformArray, 40, 1);
 let gridSize = 20.0;
 let gridSpacing = 1.0;
 let zIsUp = false;
+let gridDepthWriteEnabled = false;  // New variable to control depth writing
 
 // Coordinate axes
 let coordinateThickness = 1.0;
@@ -297,7 +299,26 @@ async function initWebGPU() {
 
 async function initGrid() {
     // Create grid pipeline
-    const bindGroupLayout = device.createBindGroupLayout({
+    await createGridPipeline();
+
+    // Create grid uniform buffer
+    gridUniformBuffer = device.createBuffer({
+        size: gridUniformArray.byteLength,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+
+    gridBindGroup = device.createBindGroup({
+        label: 'Grid BG',
+        layout: gridBindGroupLayout,
+        entries: [{ binding: 0, resource: { buffer: gridUniformBuffer } }]
+    });
+
+    createGridGeometry();
+    updateGridUniforms();
+}
+
+async function createGridPipeline() {
+    gridBindGroupLayout = device.createBindGroupLayout({
         label: 'Grid BGL',
         entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }]
     });
@@ -306,7 +327,7 @@ async function initGrid() {
 
     gridPipeline = await device.createRenderPipelineAsync({
         label: 'Grid Pipeline',
-        layout: device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout, bindGroupLayout] }),
+        layout: device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout, gridBindGroupLayout] }),
         vertex: {
             module,
             entryPoint: 'vertexMain',
@@ -331,26 +352,11 @@ async function initGrid() {
         },
         depthStencil: {
             format: depthFormat,
-            depthWriteEnabled: false,  // Disable depth writing for transparent grid
+            depthWriteEnabled: gridDepthWriteEnabled,
             depthCompare: 'less-equal'
         },
         multisample: { count: sampleCount }
     });
-
-    // Create grid uniform buffer
-    gridUniformBuffer = device.createBuffer({
-        size: gridUniformArray.byteLength,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-    });
-
-    gridBindGroup = device.createBindGroup({
-        label: 'Grid BG',
-        layout: bindGroupLayout,
-        entries: [{ binding: 0, resource: { buffer: gridUniformBuffer } }]
-    });
-
-    createGridGeometry();
-    updateGridUniforms();
 }
 
 async function initCoordinateAxes() {
@@ -759,7 +765,16 @@ export async function updateDisplayOptions(options) {
 
     // Update grid uniforms
     if (options.lineColor) gridLineColor.set(options.lineColor);
-    if (options.baseColor) gridBaseColor.set(options.baseColor);
+    if (options.baseColor) {
+        gridBaseColor.set(options.baseColor);
+        const newDepthWrite = options.baseColor[3] === 1.0;
+        if (newDepthWrite !== gridDepthWriteEnabled) {
+            gridDepthWriteEnabled = newDepthWrite;
+            if (device) {
+                await createGridPipeline();
+            }
+        }
+    }
     if (typeof options.lineWidthX === 'number' && typeof options.lineWidthY === 'number') {
         gridLineWidth.set([options.lineWidthX, options.lineWidthY]);
     }
