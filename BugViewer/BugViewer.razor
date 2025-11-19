@@ -344,7 +344,10 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	private double _lastPointerY;
 	private HashSet<string> _pressedKeys = new();
 	private System.Threading.Timer? _keyboardMoveTimer;
-
+	private Vector3 meshCenter;
+	private float meshRadius;
+	private int meshPointCount;
+	private List<MeshData> _meshes;
 	// Canvas dimensions for projection matrix computation
 	private double _canvasWidth = 800;
 	private double _canvasHeight = 600;
@@ -380,6 +383,24 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	/// </summary>
 	public async Task AddMeshAsync(MeshData mesh)
 	{
+		if (_meshes is null || _meshes.Count == 0)
+		{
+			_meshes = new List<MeshData>();
+			meshCenter = Vector3.Zero;
+			meshRadius = 0;
+			meshPointCount = 0;
+		}
+		_meshes.Add(mesh);
+		var newCenter = mesh.Vertices.Aggregate(Vector3.Zero, (acc, vertex) => acc + vertex) / mesh.Vertices.Count();
+		var newRadius = mesh.Vertices.Max(v => Vector3.DistanceSquared(v, newCenter));
+		newRadius = MathF.Sqrt(newRadius);
+		var newStateIsLarger = Vector3.Distance(newCenter, meshCenter) + newRadius > meshRadius;
+
+		meshCenter = (meshCenter * meshPointCount + newCenter * mesh.Vertices.Count()) / (meshPointCount + mesh.Vertices.Count());
+		meshPointCount += mesh.Vertices.Count();
+		_meshes.Add(mesh);
+		meshRadius = newStateIsLarger ? _meshes.SelectMany(m => m.Vertices).Max(v => Vector3.DistanceSquared(v, meshCenter)) : meshRadius;)
+
 		if (_module is null || !_ready)
 		{
 			throw new InvalidOperationException("WebGPU is not ready. Wait for initialization.");
@@ -402,10 +423,11 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	/// <summary>
 	/// Removes a mesh from the scene by its ID.
 	/// </summary>
-	public async Task RemoveMeshAsync(string meshId)
+	public async Task RemoveMeshAsync(MeshData mesh)
 	{
-		if (_module is null) return;
-		await _module.InvokeVoidAsync("removeMesh", meshId);
+		var index = _meshes.IndexOf(mesh);
+		if (index < 0) return;
+		await _module.InvokeVoidAsync("removeMesh", index);
 	}
 
 	/// <summary>
@@ -833,9 +855,9 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	private async Task HandleCameraReset()
 	{
 		if (Camera is null) return;
-		
+
 		Camera.Reset();
-		
+
 		// Send updated view matrix to JavaScript
 		if (_module != null && _ready)
 		{
@@ -846,9 +868,9 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 	private async Task HandleCameraCardinalView(CardinalDirection direction)
 	{
 		if (Camera is null) return;
-		
+
 		Camera.SetCardinalView(direction);
-		
+
 		// Send updated view matrix to JavaScript
 		if (_module != null && _ready)
 		{

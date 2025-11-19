@@ -991,9 +991,7 @@ export async function addMesh(meshData) {
     });
 }
 
-export function removeMesh(meshId) {
-    const index = meshes.findIndex(m => m.id === meshId);
-    if (index >= 0) {
+export function removeMesh(index) {
         const mesh = meshes[index];
         mesh.vertexBuffer?.destroy();
         mesh.colorBuffer?.destroy();
