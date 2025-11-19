@@ -401,7 +401,7 @@ async function initCoordinateAxes() {
         },
         depthStencil: {
             format: depthFormat,
-            depthWriteEnabled: true,
+            depthWriteEnabled: false, // Axes are transparent and should not write to depth
             depthCompare: 'less-equal'
         },
         multisample: { count: sampleCount },
@@ -535,6 +535,11 @@ function renderFrame() {
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginRenderPass(renderPass);
 
+    // ========================================================================
+    // 1. Opaque Pass: Draw all opaque objects first.
+    // Depth test and depth write are enabled.
+    // ========================================================================
+
     // Draw opaque meshes
     for (const mesh of meshes.filter(m => !m.isTransparent)) {
         if (!mesh.pipeline || !mesh.vertexBuffer || !mesh.indexBuffer) continue;
@@ -555,8 +560,8 @@ function renderFrame() {
         pass.drawIndexed(mesh.indexCount);
     }
 
-    // Draw grid
-    if (gridPipeline) {
+    // Draw grid if it's opaque
+    if (gridPipeline && !gridIsTransparent) {
         pass.setPipeline(gridPipeline);
         pass.setBindGroup(0, frameBindGroup);
         pass.setBindGroup(1, gridBindGroup);
@@ -564,64 +569,111 @@ function renderFrame() {
         pass.setIndexBuffer(gridIndexBuffer, 'uint32');
         pass.drawIndexed(6);
     }
-    if (coordinateThickness && coordinateAxes) {
-        pass.setPipeline(coordinateAxes.pipeline);
-        pass.setBindGroup(0, frameBindGroup);
-        pass.setVertexBuffer(0, coordinateAxes.posBuffer);
-        pass.setVertexBuffer(1, coordinateAxes.colorBuffer);
-        pass.setVertexBuffer(2, coordinateAxes.thicknessBuffer);
-        pass.setVertexBuffer(3, coordinateAxes.uvBuffer);
-        pass.setVertexBuffer(4, coordinateAxes.endPosBuffer);
-        pass.setVertexBuffer(5, coordinateAxes.fadeBuffer);
-        pass.setIndexBuffer(coordinateAxes.indexBuffer, 'uint16');
-        pass.drawIndexed(coordinateAxes.indexCount);
+
+    // ========================================================================
+    // 2. Transparent Pass: Draw all transparent objects, sorted back-to-front.
+    // Depth test is enabled, but depth write is disabled.
+    // ========================================================================
+
+    const transparentDrawables = [];
+
+    // Add transparent grid
+    if (gridPipeline && gridIsTransparent) {
+        transparentDrawables.push({
+            // The grid is at the origin, so its depth is determined by the view matrix's translation
+            depth: (viewMatrix[12] * viewMatrix[12] + viewMatrix[13] * viewMatrix[13] + viewMatrix[14] * viewMatrix[14]),
+            draw: () => {
+                pass.setPipeline(gridPipeline);
+                pass.setBindGroup(0, frameBindGroup);
+                pass.setBindGroup(1, gridBindGroup);
+                pass.setVertexBuffer(0, gridVertexBuffer);
+                pass.setIndexBuffer(gridIndexBuffer, 'uint32');
+                pass.drawIndexed(6);
+            }
+        });
     }
-    // Draw transparent meshes
+
+    // Add coordinate axes
+    if (coordinateThickness && coordinateAxes) {
+        transparentDrawables.push({
+            depth: (viewMatrix[12] * viewMatrix[12] + viewMatrix[13] * viewMatrix[13] + viewMatrix[14] * viewMatrix[14]),
+            draw: () => {
+                pass.setPipeline(coordinateAxes.pipeline);
+                pass.setBindGroup(0, frameBindGroup);
+                pass.setVertexBuffer(0, coordinateAxes.posBuffer);
+                pass.setVertexBuffer(1, coordinateAxes.colorBuffer);
+                pass.setVertexBuffer(2, coordinateAxes.thicknessBuffer);
+                pass.setVertexBuffer(3, coordinateAxes.uvBuffer);
+                pass.setVertexBuffer(4, coordinateAxes.endPosBuffer);
+                pass.setVertexBuffer(5, coordinateAxes.fadeBuffer);
+                pass.setIndexBuffer(coordinateAxes.indexBuffer, 'uint16');
+                pass.drawIndexed(coordinateAxes.indexCount);
+            }
+        });
+    }
+
+    // Add transparent meshes
     for (const mesh of meshes.filter(m => m.isTransparent)) {
         if (!mesh.pipeline || !mesh.vertexBuffer || !mesh.indexBuffer) continue;
-
-        pass.setPipeline(mesh.pipeline);
-        pass.setBindGroup(0, frameBindGroup);
-
-        if (mesh.singleColor && mesh.bindGroup) {
-            pass.setBindGroup(1, mesh.bindGroup);
-        }
-
-        pass.setVertexBuffer(0, mesh.vertexBuffer);
-        if (!mesh.singleColor && mesh.colorBuffer) {
-            pass.setVertexBuffer(1, mesh.colorBuffer);
-        }
-
-        pass.setIndexBuffer(mesh.indexBuffer, 'uint16');
-        pass.drawIndexed(mesh.indexCount);
+        const viewSpacePos = transformPoint(mesh.center, viewMatrix);
+        transparentDrawables.push({
+            depth: viewSpacePos[2],
+            draw: () => {
+                pass.setPipeline(mesh.pipeline);
+                pass.setBindGroup(0, frameBindGroup);
+                if (mesh.singleColor && mesh.bindGroup) pass.setBindGroup(1, mesh.bindGroup);
+                pass.setVertexBuffer(0, mesh.vertexBuffer);
+                if (!mesh.singleColor && mesh.colorBuffer) pass.setVertexBuffer(1, mesh.colorBuffer);
+                pass.setIndexBuffer(mesh.indexBuffer, 'uint16');
+                pass.drawIndexed(mesh.indexCount);
+            }
+        });
     }
 
-    // Draw lines
+    // Add lines
     for (const line of lines) {
         if (!line.pipeline || !line.posBuffer || !line.indexBuffer) continue;
-
-        pass.setPipeline(line.pipeline);
-        pass.setBindGroup(0, frameBindGroup);
-        pass.setVertexBuffer(0, line.posBuffer);
-        pass.setVertexBuffer(1, line.colorBuffer);
-        pass.setVertexBuffer(2, line.thicknessBuffer);
-        pass.setVertexBuffer(3, line.uvBuffer);
-        pass.setVertexBuffer(4, line.endPosBuffer);
-        pass.setVertexBuffer(5, line.fadeBuffer);
-        pass.setIndexBuffer(line.indexBuffer, 'uint16');
-        pass.drawIndexed(line.indexCount);
+        const viewSpacePos = transformPoint(line.center, viewMatrix);
+        transparentDrawables.push({
+            depth: viewSpacePos[2],
+            draw: () => {
+                pass.setPipeline(line.pipeline);
+                pass.setBindGroup(0, frameBindGroup);
+                pass.setVertexBuffer(0, line.posBuffer);
+                pass.setVertexBuffer(1, line.colorBuffer);
+                pass.setVertexBuffer(2, line.thicknessBuffer);
+                pass.setVertexBuffer(3, line.uvBuffer);
+                pass.setVertexBuffer(4, line.endPosBuffer);
+                pass.setVertexBuffer(5, line.fadeBuffer);
+                pass.setIndexBuffer(line.indexBuffer, 'uint16');
+                pass.drawIndexed(line.indexCount);
+            }
+        });
     }
 
-    // Draw text billboards
+    // Add text billboards
     for (const billboard of textBillboards) {
         if (!billboard.pipeline || !billboard.vertexBuffer || !billboard.indexBuffer) continue;
+        const viewSpacePos = transformPoint(billboard.position, viewMatrix);
+        transparentDrawables.push({
+            depth: viewSpacePos[2],
+            draw: () => {
+                pass.setPipeline(billboard.pipeline);
+                pass.setBindGroup(0, frameBindGroup);
+                pass.setBindGroup(1, billboard.bindGroup);
+                pass.setVertexBuffer(0, billboard.vertexBuffer);
+                pass.setIndexBuffer(billboard.indexBuffer, 'uint16');
+                pass.drawIndexed(billboard.indexCount);
+            }
+        });
+    }
 
-        pass.setPipeline(billboard.pipeline);
-        pass.setBindGroup(0, frameBindGroup);
-        pass.setBindGroup(1, billboard.bindGroup);
-        pass.setVertexBuffer(0, billboard.vertexBuffer);
-        pass.setIndexBuffer(billboard.indexBuffer, 'uint16');
-        pass.drawIndexed(billboard.indexCount);
+    // Sort transparent objects from back to front (descending depth)
+    transparentDrawables.sort((a, b) => b.depth - a.depth);
+
+    // Execute draw calls
+    for (const drawable of transparentDrawables) {
+        drawable.draw();
     }
 
     pass.end();
@@ -836,6 +888,19 @@ export async function addMesh(meshData) {
     const vertexBuffer = createBuffer(vertices, GPUBufferUsage.VERTEX);
     const indexBuffer = createBuffer(indices, GPUBufferUsage.INDEX, Uint16Array);
 
+    // Calculate bounding box and center for sorting
+    let min = [Infinity, Infinity, Infinity];
+    let max = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < vertices.length; i += 3) {
+        min[0] = Math.min(min[0], vertices[i]);
+        min[1] = Math.min(min[1], vertices[i + 1]);
+        min[2] = Math.min(min[2], vertices[i + 2]);
+        max[0] = Math.max(max[0], vertices[i]);
+        max[1] = Math.max(max[1], vertices[i + 1]);
+        max[2] = Math.max(max[2], vertices[i + 2]);
+    }
+    const center = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
+
     let colorBuffer = null;
     let bindGroup = null;
     let bindGroupLayout = null;  // Declare here so it's accessible later
@@ -861,6 +926,14 @@ export async function addMesh(meshData) {
     } else {
         shaderCode = MESH_SHADER_VERTEX_COLOR;
         colorBuffer = createBuffer(colors, GPUBufferUsage.VERTEX);
+        // Check if any vertex has transparency to correctly flag the mesh
+        isTransparent = false;
+        for (let i = 3; i < colors.length; i += 4) {
+            if (colors[i] < 1.0) {
+                isTransparent = true;
+                break;
+            }
+        }
     }
 
     const shaderModule = device.createShaderModule({ code: shaderCode });
@@ -906,6 +979,7 @@ export async function addMesh(meshData) {
 
     meshes.push({
         id,
+        center, // Store center for sorting
         vertexBuffer,
         colorBuffer,
         indexBuffer,
@@ -939,6 +1013,19 @@ export function clearAllMeshes() {
 
 export async function addLines(lineData) {
     const { id, vertices, thickness, colors, fades } = lineData;
+
+    // Calculate center for sorting
+    let min = [Infinity, Infinity, Infinity];
+    let max = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < vertices.length; i += 3) {
+        min[0] = Math.min(min[0], vertices[i]);
+        min[1] = Math.min(min[1], vertices[i + 1]);
+        min[2] = Math.min(min[2], vertices[i + 2]);
+        max[0] = Math.max(max[0], vertices[i]);
+        max[1] = Math.max(max[1], vertices[i + 1]);
+        max[2] = Math.max(max[2], vertices[i + 2]);
+    }
+    const center = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
 
     // Geometry buffers are created from pre-computed data from C#
     const posBuffer = createBuffer(vertices, GPUBufferUsage.VERTEX);
@@ -977,7 +1064,7 @@ export async function addLines(lineData) {
         },
         depthStencil: {
             format: depthFormat,
-            depthWriteEnabled: true,
+            depthWriteEnabled: false, // Transparent objects test depth but don't write to it
             depthCompare: 'less-equal'
         },
         multisample: { count: sampleCount },
@@ -986,6 +1073,7 @@ export async function addLines(lineData) {
 
     lines.push({
         id,
+        center, // Store center for sorting
         posBuffer,
         colorBuffer,
         thicknessBuffer,
@@ -1129,7 +1217,7 @@ export async function addTextBillboard(billboardData) {
         },
         depthStencil: {
             format: depthFormat,
-            depthWriteEnabled: true,
+            depthWriteEnabled: false, // Transparent objects test depth but don't write to it
             depthCompare: 'less-equal'
         },
         multisample: { count: sampleCount }
@@ -1137,6 +1225,7 @@ export async function addTextBillboard(billboardData) {
 
     textBillboards.push({
         id,
+        position, // Store position for sorting
         vertexBuffer,
         indexBuffer,
         bindGroup,
@@ -1188,6 +1277,16 @@ function startFrameTimer() {
 // ============================================================================
 // Utility Functions
 // ============================================================================
+
+function transformPoint(point, matrix) {
+    const x = point[0], y = point[1], z = point[2];
+    const w = matrix[3] * x + matrix[7] * y + matrix[11] * z + matrix[15] || 1.0;
+    return [
+        (matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12]) / w,
+        (matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13]) / w,
+        (matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14]) / w
+    ];
+}
 
 function createBuffer(data, usage, ArrayType = Float32Array) {
     const typedArray = data instanceof ArrayType ? data : new ArrayType(data);
