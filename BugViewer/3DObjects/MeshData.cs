@@ -6,12 +6,8 @@ namespace BugViewer;
 /// <summary>
 /// Represents a 3D mesh with vertices and indices for WebGPU rendering.
 /// </summary>
-public record MeshData : CStoWebGPUDataObject
+public record MeshData : AbstractObject3D
 {
-
-    /// <summary>Vertex positions (x, y, z triplets).</summary>
-    public required IEnumerable<Vector3> Vertices { get; init; }
-
     /// <summary>Triangle indices (3 indices per triangle).</summary>
     public required IEnumerable<(int a, int b, int c)> Indices { get; init; }
 
@@ -35,7 +31,7 @@ public record MeshData : CStoWebGPUDataObject
                 vertices = Indices.SelectMany(face => TriangleIndices(face)).SelectMany(ind => Coordinates(vertexList[ind])).ToArray(),
                 indices = Enumerable.Range(0, 3 * Indices.Count()).ToArray(),
                 colors = Colors.SelectMany(c =>
-                      ColorParts(c).Concat(ColorParts(c)).Concat(ColorParts(c))).ToArray(),
+                      ColorToJavaScript(c).Concat(ColorToJavaScript(c)).Concat(ColorToJavaScript(c))).ToArray(),
                 singleColor = false
             };
         }
@@ -46,18 +42,9 @@ public record MeshData : CStoWebGPUDataObject
                 id = Id,
                 vertices = Vertices.SelectMany(v => Coordinates(v)).ToArray(),
                 indices = Indices.SelectMany(face => TriangleIndices(face)).ToArray(),
-                //colors = new float[] { 1f, 0f, 0f, 1f },
-                colors = Colors.SelectMany(c => ColorParts(c)).ToArray(),
+                colors = Colors.SelectMany(c => ColorToJavaScript(c)).ToArray(),
                 singleColor = ColorMode == MeshColoring.UniformColor
             };
         }
     }
 }
-
-public enum MeshColoring
-{
-    UniformColor,
-    PerVertex,
-    PerTriangle
-}
-

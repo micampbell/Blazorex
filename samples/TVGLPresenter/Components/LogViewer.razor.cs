@@ -54,7 +54,7 @@ namespace TVGLPresenter.Components
                             await InvokeAsync(async () =>
                             {
                                 await Task.Delay(10);
-                                // Scroll to bottom by setting scroll position
+                                // Scroll to bottom by setting scroll Center
                             });
                         }
                         catch

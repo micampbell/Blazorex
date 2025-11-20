@@ -364,7 +364,7 @@ async function initGrid() {
 
 async function initCoordinateAxes() {
 
-    const axisData = createAxisGeometry();    
+    const axisData = createAxisGeometry();
     const posBuffer = createBuffer(axisData.vertices, GPUBufferUsage.VERTEX);
     const colorBuffer = createBuffer(axisData.colors, GPUBufferUsage.VERTEX);
     const thicknessBuffer = createBuffer(axisData.thickness, GPUBufferUsage.VERTEX);
@@ -727,7 +727,7 @@ function setupResizeObserver() {
 
             canvas.width = width;
             canvas.height = height;
-            
+
             // Notify C# to recompute projection matrix
             dotNetRef?.invokeMethodAsync('OnCanvasResized', width, height);
 
@@ -992,12 +992,11 @@ export async function addMesh(meshData) {
 }
 
 export function removeMesh(index) {
-        const mesh = meshes[index];
-        mesh.vertexBuffer?.destroy();
-        mesh.colorBuffer?.destroy();
-        mesh.indexBuffer?.destroy();
-        meshes.splice(index, 1);
-    }
+    const mesh = meshes[index];
+    mesh.vertexBuffer?.destroy();
+    mesh.colorBuffer?.destroy();
+    mesh.indexBuffer?.destroy();
+    meshes.splice(index, 1);
 }
 
 export function clearAllMeshes() {
@@ -1084,19 +1083,16 @@ export async function addLines(lineData) {
     });
 }
 
-export function removeLines(lineId) {
-    const index = lines.findIndex(l => l.id === lineId);
-    if (index >= 0) {
-        const line = lines[index];
-        line.posBuffer?.destroy();
-        line.colorBuffer?.destroy();
-        line.thicknessBuffer?.destroy();
-        line.uvBuffer?.destroy();
-        line.endPosBuffer?.destroy();
-        line.fadeBuffer?.destroy();
-        line.indexBuffer?.destroy();
-        lines.splice(index, 1);
-    }
+export function removeLines(index) {
+    const line = lines[index];
+    line.posBuffer?.destroy();
+    line.colorBuffer?.destroy();
+    line.thicknessBuffer?.destroy();
+    line.uvBuffer?.destroy();
+    line.endPosBuffer?.destroy();
+    line.fadeBuffer?.destroy();
+    line.indexBuffer?.destroy();
+    lines.splice(index, 1);
 }
 
 export function clearAllLines() {

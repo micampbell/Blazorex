@@ -1,13 +1,49 @@
+using System.Drawing;
 using System.Numerics;
 
 namespace BugViewer;
 
 /// <summary>
-/// Generates billboard stadium geometry for line rendering in C#.
-/// This moves the complex geometry generation logic from JavaScript to C#.
+/// Represents 3D lines with variable thickness and color for WebGPU rendering.
 /// </summary>
-public static class LineGeometryGenerator
+public record LineData : AbstractObject3D
 {
+    public required IEnumerable<double> Thicknesses { get; init; }
+
+    /// <summary>
+    /// A number from 0.0 to 1.0 representing the fade factor for each path.
+    /// When 0.0, the path is fully opaque and no gradient is applied. Values between 0 and 1.0,
+    /// mean that the the path fades from the centerline to transparency at this fraction of the 
+    /// half-thickness.
+    /// </summary>
+    public required IEnumerable<double> FadeFactors { get; init; }
+
+
+    internal override object CreateJavascriptData()
+    {
+        // Generate stadium geometry in C# instead of JavaScript
+        var (positions, colors, thickness, uvs, endPositions, fades, indices) = 
+            GenerateStadiumGeometry(
+                Vertices, 
+                Thicknesses, 
+                Colors.Cast<Color>(), 
+                FadeFactors);
+
+        return new
+        {
+            id = Id,
+            vertices = positions,
+            colors,
+            thickness,
+            uvs,
+            endPositions,
+            fades,
+            indices
+        };
+    }
+
+
+
     private const float HalfRadius = 0.5f;
     private const float AngleStep = MathF.PI / 6f; // 30 degrees
 
@@ -61,11 +97,11 @@ public static class LineGeometryGenerator
             var v1 = vertexList[i + 1];
 
             var color = colorList.Count > i
-                ? new float[] { 
-                    colorList[i].R / 255f, 
-                    colorList[i].G / 255f, 
-                    colorList[i].B / 255f, 
-                    colorList[i].A / 255f 
+                ? new float[] {
+                    colorList[i].R / 255f,
+                    colorList[i].G / 255f,
+                    colorList[i].B / 255f,
+                    colorList[i].A / 255f
                 }
                 : new float[] { 1f, 1f, 1f, 1f };
 
@@ -82,13 +118,13 @@ public static class LineGeometryGenerator
                 v0, color, t, 1f, 0.5f, v1, fade); // end-right
 
             // Body indices
-            indices.AddRange(new ushort[] { 
-                (ushort)baseIdxBody, 
-                (ushort)(baseIdxBody + 1), 
-                (ushort)(baseIdxBody + 2), 
-                (ushort)(baseIdxBody + 1), 
-                (ushort)(baseIdxBody + 3), 
-                (ushort)(baseIdxBody + 2) 
+            indices.AddRange(new ushort[] {
+                (ushort)baseIdxBody,
+                (ushort)(baseIdxBody + 1),
+                (ushort)(baseIdxBody + 2),
+                (ushort)(baseIdxBody + 1),
+                (ushort)(baseIdxBody + 3),
+                (ushort)(baseIdxBody + 2)
             });
 
             // Start cap (semicircle behind start point)
@@ -185,7 +221,7 @@ public static class LineGeometryGenerator
         uvs.Add(u);
         uvs.Add(v);
 
-        // End position (vec3)
+        // End Center (vec3)
         endPositions.Add(endPos.X);
         endPositions.Add(endPos.Y);
         endPositions.Add(endPos.Z);

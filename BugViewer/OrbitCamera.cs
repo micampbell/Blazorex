@@ -18,19 +18,6 @@ public struct Ray
 }
 
 /// <summary>
-/// Cardinal directions for camera positioning.
-/// </summary>
-public enum CardinalDirection
-{
-    PositiveX,
-    NegativeX,
-    PositiveY,
-    NegativeY,
-    PositiveZ,
-    NegativeZ
-}
-
-/// <summary>
 /// Orbit camera for 3D scene navigation with mouse/touch controls.
 /// Handles rotation (orbit), zoom (distance), and pan (target movement).
 /// </summary>
@@ -213,7 +200,7 @@ public class OrbitCamera
     private Matrix4x4 cameraMatrix;
 
     /// <summary>
-    /// Gets the camera position in world space.
+    /// Gets the camera Center in world space.
     /// </summary>
     public Vector3 Position
     {
@@ -260,7 +247,7 @@ public class OrbitCamera
     }
 
     /// <summary>
-    /// Resets the camera to default position.
+    /// Resets the camera to default Center.
     /// </summary>
     public void Reset()
     {
@@ -361,13 +348,13 @@ public class OrbitCamera
 
     #region Selection Ray
     /// <summary>
-    /// Creates a ray from the camera through a screen position for picking/selection.
+    /// Creates a ray from the camera through a screen Center for picking/selection.
     /// </summary>
     /// <param name="screenX">Screen X coordinate relative to canvas (0 = left, canvasWidth = right)</param>
     /// <param name="screenY">Screen Y coordinate relative to canvas (0 = top, canvasHeight = bottom)</param>
     /// <param name="screenWidth">Canvas/screen width in pixels</param>
     /// <param name="screenHeight">Canvas/screen height in pixels</param>
-    /// <returns>Ray with origin at camera position and direction through the screen point</returns>
+    /// <returns>Ray with origin at camera Center and direction through the screen point</returns>
     public Ray CreateRayFromScreenPoint(double screenX, double screenY, double screenWidth, double screenHeight)
     {
         // Convert screen coordinates to normalized device coordinates (NDC)
@@ -434,7 +421,7 @@ public class OrbitCamera
 
     internal void SwapCameraUp()
     {
-        // Get the current camera position relative to the target
+        // Get the current camera Center relative to the target
         var pos = Position - Target;
 
         if (_options.ZIsUp) // Swapping from Y-up to Z-up

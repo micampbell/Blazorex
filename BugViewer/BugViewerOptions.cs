@@ -85,6 +85,20 @@ public class BugViewerOptions : INotifyPropertyChanged
         CoordinateThickness = Default.CoordinateThickness;
     }
 
+    private UpdateTypes _addObjectUpdateCamera;
+    public UpdateTypes AddObjectUpdateCamera
+    {
+        get => _addObjectUpdateCamera;
+        set
+        {
+            if (_addObjectUpdateCamera != value)
+            {
+                _addObjectUpdateCamera = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     private string _clearColor;
     /// <summary>Background clear color for the rendering canvas.</summary>
     public string ClearColor
@@ -526,9 +540,9 @@ public class BugViewerOptions : INotifyPropertyChanged
     /// </summary>
     public object ToJavascriptOptions() => new
     {
-        clearColor = BugViewer.ColorToJavaScript(ClearColor, 1).ToArray(),
-        lineColor = BugViewer.ColorToJavaScript(LineColor, LineTransparency).ToArray(),
-        baseColor = BugViewer.ColorToJavaScript(BaseColor, BaseTransparency).ToArray(),
+        clearColor = ColorToJavaScript(ClearColor, 1).ToArray(),
+        lineColor = ColorToJavaScript(LineColor, LineTransparency).ToArray(),
+        baseColor = ColorToJavaScript(BaseColor, BaseTransparency).ToArray(),
         lineWidthX = (float)LineWidthX,
         lineWidthY = (float)LineWidthY,
         sampleCount = SampleCount,
@@ -537,4 +551,14 @@ public class BugViewerOptions : INotifyPropertyChanged
         zIsUp = ZIsUp,
         coordinateThickness = CoordinateThickness,
     };
+    internal static IEnumerable<float> ColorToJavaScript(string c, double transparency)
+    {
+        c = c.Substring(4);
+        c = c.TrimEnd(')');
+        var cArray = c.Split(',');
+        yield return int.Parse(cArray[0]) / 255f;
+        yield return int.Parse(cArray[1]) / 255f;
+        yield return int.Parse(cArray[2]) / 255f;
+        yield return (float)transparency;
+    }
 }
