@@ -30,7 +30,7 @@ public class OrbitCamera
         _options = options;
         Target = target;
         AzimuthAngle = Math.PI / 4; // Default to 45° for better initial view
-        polarAngle = Math.PI / 6; // Default to 30° for better initial view
+        PolarAngle = Math.PI / 6; // Default to 30° for better initial view
     }
     #region Properites/Fields
     /// <summary>
@@ -249,12 +249,19 @@ public class OrbitCamera
     /// <summary>
     /// Resets the camera to default Center.
     /// </summary>
-    public void Reset()
+    internal void Reset(Sphere objectSphere)
     {
-        PolarAngle = 0;
-        AzimuthAngle = 0;
-        Distance = 10.0;
-        Target = Vector3.Zero;
+        Target = objectSphere.Center;
+        AzimuthAngle = Math.PI / 4; // Default to 45° for better initial view
+        PolarAngle = Math.PI / 6; // Default to 30° for better initial view
+        // to set the distance, fit the object in view. This requires knowing the FOV
+        var radius = (1 + _options.AutoCameraSphereBuffer) * objectSphere.GetRadius();
+        // Slightly larger to ensure full fit
+        //  determine the shorter dimension of the current view
+        var angleAtCamera = Math.PI * _options.Fov / 360;
+        Distance = radius / Math.Sin(angleAtCamera);
+        _options.ZFar = Distance + 2 * radius;
+        _options.ZNear = 0.025 * radius;
     }
 
     /// <summary>

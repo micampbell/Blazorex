@@ -385,10 +385,10 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     public async Task AddMeshAsync(MeshData mesh)
     {
         _meshes.Add(mesh);
-        if ((UpdateSpheresAdd(mesh) && _options.AddObjectUpdateCamera == UpdateTypes.SphereChange)
-        || _options.AddObjectUpdateCamera == UpdateTypes.OnDataChange)
+        if ((UpdateSpheresAdd(mesh) && _options.AutoResetCamera == UpdateTypes.SphereChange)
+        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
         {
-            Camera.Reset();
+            ResetCamera();
             await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
         }
         await _module.InvokeVoidAsync("addMesh", mesh.CreateJavascriptData());
@@ -400,10 +400,10 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     public async Task AddLinesAsync(LineData path)
     {
         _lines.Add(path);
-        if ((UpdateSpheresAdd(path) && _options.AddObjectUpdateCamera == UpdateTypes.SphereChange)
-        || _options.AddObjectUpdateCamera == UpdateTypes.OnDataChange)
+        if ((UpdateSpheresAdd(path) && _options.AutoResetCamera == UpdateTypes.SphereChange)
+        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
         {
-            Camera.Reset();
+            ResetCamera();
             await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
         }
         await _module.InvokeVoidAsync("addLines", path.CreateJavascriptData());
@@ -416,10 +416,10 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     {
         var index = _meshes.IndexOf(mesh);
         if (index < 0) return;
-        if ((UpdateSpheresRemove(mesh) && _options.AddObjectUpdateCamera == UpdateTypes.SphereChange)
-        || _options.AddObjectUpdateCamera == UpdateTypes.OnDataChange)
+        if ((UpdateSpheresRemove(mesh) && _options.AutoResetCamera == UpdateTypes.SphereChange)
+        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
         {
-            Camera.Reset();
+            ResetCamera();
             await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
         }
         await _module.InvokeVoidAsync("removeMesh", index);
@@ -432,10 +432,10 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     {
         var index = _lines.IndexOf(path);
         if (index < 0) return;
-        if ((UpdateSpheresRemove(path) && _options.AddObjectUpdateCamera == UpdateTypes.SphereChange)
-        || _options.AddObjectUpdateCamera == UpdateTypes.OnDataChange)
+        if ((UpdateSpheresRemove(path) && _options.AutoResetCamera == UpdateTypes.SphereChange)
+        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
         {
-            Camera.Reset();
+            ResetCamera();
             await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
         }
         await _module.InvokeVoidAsync("removeLines", index);
@@ -449,10 +449,10 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
         if (_meshes.Count == 0) return;
         var needToUpdate = _meshes.All(m => UpdateSpheresRemove(m));
         _meshes.Clear();
-        if ((needToUpdate && _options.AddObjectUpdateCamera == UpdateTypes.SphereChange)
-        || _options.AddObjectUpdateCamera == UpdateTypes.OnDataChange)
+        if ((needToUpdate && _options.AutoResetCamera == UpdateTypes.SphereChange)
+        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
         {
-            Camera.Reset();
+            ResetCamera();
             await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
         }
         await _module.InvokeVoidAsync("clearAllMeshes");
@@ -466,10 +466,10 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
         if (_lines.Count == 0) return;
         var needToUpdate = _lines.All(m => UpdateSpheresRemove(m));
         _lines.Clear();
-        if ((needToUpdate && _options.AddObjectUpdateCamera == UpdateTypes.SphereChange)
-        || _options.AddObjectUpdateCamera == UpdateTypes.OnDataChange)
+        if ((needToUpdate && _options.AutoResetCamera == UpdateTypes.SphereChange)
+        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
         {
-            Camera.Reset();
+            ResetCamera();
             await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
         }
         await _module.InvokeVoidAsync("clearAllLines");
@@ -866,32 +866,21 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
         _dotNetRef?.Dispose();
     }
 
-    private void ResetCamera()
+    public void ResetCamera()
     {
         // Reset camera to default Center and orientation
-        Camera.Reset();
+        Camera.Reset(totalSphere);
 
         // Send updated view matrix to JavaScript
         _module?.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
     }
 
-    private async Task HandleCameraReset()
-    {
-        if (Camera is null) return;
-
-        Camera.Reset();
-
-        // Send updated view matrix to JavaScript
-        if (_module != null && _ready)
-        {
-            await _module.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
-        }
-    }
+    private async Task HandleCameraReset() => ResetCamera();
 
     private async Task HandleCameraCardinalView(CardinalDirection direction)
     {
         if (Camera is null) return;
-
+        ResetCamera();
         Camera.SetCardinalView(direction);
 
         // Send updated view matrix to JavaScript

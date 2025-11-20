@@ -22,6 +22,7 @@ public class BugViewerOptions : INotifyPropertyChanged
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
     public static BugViewerOptions Default = new()
     {
+        AutoResetCamera = UpdateTypes.SphereChange,
         ClearColor = "rgb(233,233,255)",
         LineColor = "rgb(215, 215, 215)",
         LineTransparency = 0.8f,
@@ -54,6 +55,7 @@ public class BugViewerOptions : INotifyPropertyChanged
     };
     public void ResetToDefault()
     {
+        AutoResetCamera = Default.AutoResetCamera;
         ClearColor = Default.ClearColor;
         LineColor = Default.LineColor;
         LineTransparency = Default.LineTransparency;
@@ -85,15 +87,15 @@ public class BugViewerOptions : INotifyPropertyChanged
         CoordinateThickness = Default.CoordinateThickness;
     }
 
-    private UpdateTypes _addObjectUpdateCamera;
-    public UpdateTypes AddObjectUpdateCamera
+    private UpdateTypes _autoResetCamera;
+    public UpdateTypes AutoResetCamera
     {
-        get => _addObjectUpdateCamera;
+        get => _autoResetCamera;
         set
         {
-            if (_addObjectUpdateCamera != value)
+            if (_autoResetCamera != value)
             {
-                _addObjectUpdateCamera = value;
+                _autoResetCamera = value;
                 OnPropertyChanged();
             }
         }
@@ -109,6 +111,24 @@ public class BugViewerOptions : INotifyPropertyChanged
             if (_clearColor != value)
             {
                 _clearColor = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private double _autoCameraSphereBuffer = 0.2;
+    /// <summary>
+    /// The amount that the radius of the bounding sphere is increased 
+    /// when automatically positioning the camera to view an object.
+    /// </summary>
+    public double AutoCameraSphereBuffer
+    {
+        get => _autoCameraSphereBuffer;
+        set
+        {
+            if (ChangeOccurred(_autoCameraSphereBuffer, value))
+            {
+                _autoCameraSphereBuffer = value;
                 OnPropertyChanged();
             }
         }
@@ -523,7 +543,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         get => _coordThick;
         set
         {
-            if (ChangeOccurred(_coordThick , value))
+            if (ChangeOccurred(_coordThick, value))
             {
                 _coordThick = value;
                 OnPropertyChanged();
