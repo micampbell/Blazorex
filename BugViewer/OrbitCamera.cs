@@ -31,6 +31,7 @@ public class OrbitCamera
         Target = target;
         AzimuthAngle = Math.PI / 4; // Default to 45° for better initial view
         PolarAngle = Math.PI / 6; // Default to 30° for better initial view
+        Distance = 50;
     }
     #region Properites/Fields
     /// <summary>
@@ -87,7 +88,7 @@ public class OrbitCamera
     }
 
     // Camera distance from target
-    private double distance = 10.0;
+    private double distance;
 
     /// <summary>
     /// Point in 3D space that the camera orbits around.
@@ -260,8 +261,8 @@ public class OrbitCamera
         //  determine the shorter dimension of the current view
         var angleAtCamera = Math.PI * _options.Fov / 360;
         Distance = radius / Math.Sin(angleAtCamera);
-        _options.ZFar = Distance + 2 * radius;
-        _options.ZNear = 0.025 * radius;
+        _options.ZFar = Distance + 10 * radius;
+        _options.ZNear = Math.Max(0.0001, 0.001 * radius);
     }
 
     /// <summary>

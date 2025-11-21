@@ -59,17 +59,17 @@
 					else
 					{
 						<BitLabel>Orthographic Size: @Options.OrthoSize.ToString("F2")</BitLabel>
-						<BitSlider @bind-Value="Options.OrthoSize" Min="1" Max="500" Step="0.25" />
+						<BitSlider @bind-Value="Options.OrthoSize" Min="1" Max="999" Step="0.5" />
 						<BitText Variant="BitTextVariant.Caption" Color="BitColor.SecondaryForeground">
 							Half-height of visible area
 						</BitText>
 					}
 
-					<BitLabel>Near Clipping Plane: @Options.ZNear.ToString("F3")</BitLabel>
-					<BitSlider @bind-Value="Options.ZNear" Min="0.001" Max="1" Step="0.001" />
+					<BitLabel>Near Clipping Plane: @Options.ZNear.ToString("F5")</BitLabel>
+					<BitSlider @bind-Value="Options.ZNear" Min="0.00001" Max="1" Step="0.001" />
 
 					<BitLabel>Far Clipping Plane: @Options.ZFar.ToString("F0")</BitLabel>
-					<BitSlider @bind-Value="Options.ZFar" Min="10" Max="999" Step="1" />
+					<BitSlider @bind-Value="Options.ZFar" Min="10" Max="9999" Step="1" />
 
 					<!-- Camera Controls Section -->
 					<BitText Variant="BitTextVariant.H6">Orbit Constraints</BitText>
@@ -107,12 +107,12 @@
 
 					<!-- Sensitivity Settings -->
 					<BitText Variant="BitTextVariant.H6">Sensitivity Settings</BitText>
-					<BitLabel>Orbit Sensitivity: @Options.OrbitSensitivity.ToString("F4")</BitLabel>
-					<BitSlider @bind-Value="Options.OrbitSensitivity" Min="0.001" Max="0.01" Step="0.0001" />
-					<BitLabel>Zoom Sensitivity: @Options.ZoomSensitivity.ToString("F4")</BitLabel>
+					<BitLabel>Orbit Sensitivity: @Options.OrbitSensitivity.ToString("F5")</BitLabel>
+					<BitSlider @bind-Value="Options.OrbitSensitivity" Min="0.0001" Max="0.01" Step="0.0001" />
+					<BitLabel>Zoom Sensitivity: @Options.ZoomSensitivity.ToString("F5")</BitLabel>
 					<BitSlider @bind-Value="Options.ZoomSensitivity" Min="0.0001" Max="0.005" Step="0.0001" />
-					<BitLabel>Pan Sensitivity: @Options.PanSensitivity.ToString("F4")</BitLabel>
-					<BitSlider @bind-Value="Options.PanSensitivity" Min="0.001" Max="0.02" Step="0.001" />
+					<BitLabel>Pan Sensitivity: @Options.PanSensitivity.ToString("F5")</BitLabel>
+					<BitSlider @bind-Value="Options.PanSensitivity" Min="0.0001" Max="0.01" Step="0.001" />
 					<BitLabel>Pan Speed Multiplier (Shift): @Options.PanSpeedMultiplier.ToString("F1")</BitLabel>
 					<BitSlider @bind-Value="Options.PanSpeedMultiplier" Min="1" Max="10" Step="0.5" />
 				</BitStack>

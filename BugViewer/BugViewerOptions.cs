@@ -34,8 +34,8 @@ public class BugViewerOptions : INotifyPropertyChanged
         IsProjectionCamera = true,
         Fov = 20,
         OrthoSize = 5.0,
-        ZNear = 0.01,
-        ZFar = 500,
+        ZNear = 0.001,
+        ZFar = 999,
         GridSize = 100.0,
         GridSpacing = 5.0,
         ConstrainPolar = true,
@@ -44,12 +44,12 @@ public class BugViewerOptions : INotifyPropertyChanged
         ConstrainAzimuth = false,
         MaxAzimuth = 0,
         MinAzimuth = 0,
-        MaxDistance = 999.0,
+        MaxDistance = 9999.0,
         MinDistance = 0.5,
         ConstrainDistance = true,
-        OrbitSensitivity = 0.003,
-        ZoomSensitivity = 0.003,
-        PanSensitivity = 0.007,
+        OrbitSensitivity = 0.001,
+        ZoomSensitivity = 0.001,
+        PanSensitivity = 0.001,
         PanSpeedMultiplier = 3.0,
         CoordinateThickness = 1
     };
@@ -553,7 +553,7 @@ public class BugViewerOptions : INotifyPropertyChanged
 
     private bool ChangeOccurred(double v1, double v2)
     {
-        return Math.Abs(v1 - v2) > 1e-3;
+        return Math.Abs(v1 - v2) > 1e-9;
     }
     /// <summary>
     /// Converts this options object to a JS-friendly format with colors normalized to 0-1 floats.
