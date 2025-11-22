@@ -24,40 +24,71 @@ const GRID_SHADER = `
       grid2 = select(grid2, 1.0 - grid2, invertLine);
       return mix(grid2.x, 1.0, grid2.y);
   }
-  struct VertexIn { @location(0) pos: vec4f, @location(1) uv: vec2f }
+  struct VertexIn { @location(0) pos: vec3f, @location(1) uv: vec2f }
   struct VertexOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f }
   struct Camera { projection: mat4x4f, view: mat4x4f }
   @group(0) @binding(0) var<uniform> camera: Camera;
   struct GridArgs { lineColor: vec4f, baseColor: vec4f, lineWidth: vec2f, spacing: f32 }
   @group(1) @binding(0) var<uniform> gridArgs: GridArgs;
-  @vertex fn vertexMain(in: VertexIn) -> VertexOut { var out: VertexOut; out.pos = camera.projection * camera.view * in.pos; out.uv = in.uv; return out; }
+  @vertex fn vertexMain(in: VertexIn) -> VertexOut { var out: VertexOut; out.pos = camera.projection * camera.view * vec4f(in.pos, 1.0); out.uv = in.uv; return out; }
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f { var grid = PristineGrid(in.uv * gridArgs.spacing, gridArgs.lineWidth); return mix(gridArgs.baseColor, gridArgs.lineColor, grid); }
 `;
 
 const MESH_SHADER = `
   struct Camera { projection: mat4x4f, view: mat4x4f }
   @group(0) @binding(0) var<uniform> camera: Camera;
+
+  struct LightUniforms {
+    lightDir: vec3f,
+    ambient: f32,
+    specularPower: f32
+  }
+  @group(1) @binding(0) var<uniform> light: LightUniforms;
+
   struct MeshUniforms { color: vec4f }
-  @group(1) @binding(0) var<uniform> meshUniforms: MeshUniforms;
+  @group(1) @binding(1) var<uniform> meshUniforms: MeshUniforms;
+
   struct VertexIn { @location(0) pos: vec3f }
   struct VertexOut { @builtin(position) pos: vec4f, @location(0) worldPos: vec3f }
+
   @vertex fn vertexMain(in: VertexIn) -> VertexOut {
     var out: VertexOut;
     out.pos = camera.projection * camera.view * vec4f(in.pos, 1.0);
     out.worldPos = in.pos;
     return out;
   }
+
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
     let normal = normalize(cross(dpdx(in.worldPos), dpdy(in.worldPos)));
-    let lightDir = normalize(vec3f(1.0, 1.0, 1.0));
-    let diffuse = max(dot(normal, lightDir), 0.3);
-    return vec4f(meshUniforms.color.rgb * diffuse, meshUniforms.color.a);
+    let lightDir = normalize(light.lightDir);
+
+    // View space position and view direction (camera at origin in view space)
+    let viewPos = (camera.view * vec4f(in.worldPos, 1.0)).xyz;
+    let viewDir = normalize(-viewPos);
+    let halfDir = normalize(lightDir + viewDir);
+
+    // Diffuse
+    let diffuse = max(dot(normal, lightDir), 0.0);
+    // Specular
+    let specAngle = max(dot(normal, halfDir), 0.0);
+    let specular = pow(specAngle, light.specularPower);
+
+    let finalColor = meshUniforms.color.rgb * (light.ambient + diffuse) + vec3f(1.0) * specular;
+    return vec4f(finalColor, meshUniforms.color.a);
   }
 `;
 
 const MESH_SHADER_VERTEX_COLOR = `
   struct Camera { projection: mat4x4f, view: mat4x4f }
   @group(0) @binding(0) var<uniform> camera: Camera;
+
+  struct LightUniforms {
+    lightDir: vec3f,
+    ambient: f32,
+    specularPower: f32
+  }
+  @group(1) @binding(0) var<uniform> light: LightUniforms;
+
   struct VertexIn {
     @location(0) pos: vec3f,
     @location(1) color: vec4f
@@ -76,9 +107,19 @@ const MESH_SHADER_VERTEX_COLOR = `
   }
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f {
     let normal = normalize(cross(dpdx(in.worldPos), dpdy(in.worldPos)));
-    let lightDir = normalize(vec3f(1.0, 1.0, 1.0));
-    let diffuse = max(dot(normal, lightDir), 0.3);
-    return vec4f(in.color.rgb * diffuse, in.color.a);
+    let lightDir = normalize(light.lightDir);
+
+    // View space position and view direction
+    let viewPos = (camera.view * vec4f(in.worldPos, 1.0)).xyz;
+    let viewDir = normalize(-viewPos);
+    let halfDir = normalize(lightDir + viewDir);
+
+    let diffuse = max(dot(normal, lightDir), 0.0);
+    let specAngle = max(dot(normal, halfDir), 0.0);
+    let specular = pow(specAngle, light.specularPower);
+
+    let finalColor = in.color.rgb * (light.ambient + diffuse) + vec3f(1.0) * specular;
+    return vec4f(finalColor, in.color.a);
   }
 `;
 
@@ -184,6 +225,16 @@ let msaaColorTexture = null;
 let depthTexture = null;
 let colorAttachment = null;
 let renderPassDescriptor = null;
+
+// Lighting resources
+let lightUniformArray = new ArrayBuffer(8 * Float32Array.BYTES_PER_ELEMENT); // 3 (vec3f) + 1 (f32) + 1 (f32) + 3 padding
+const lightDirection = new Float32Array(lightUniformArray, 0, 3);
+const lightAmbient = new Float32Array(lightUniformArray, 12, 1);
+const lightSpecularPower = new Float32Array(lightUniformArray, 16, 1);
+let lightUniformBuffer = null;
+let lightBindGroupLayout = null;
+let lightBindGroup = null;
+
 
 // Grid resources
 let gridPipeline = null;
@@ -293,6 +344,28 @@ async function initWebGPU() {
         layout: frameBindGroupLayout,
         entries: [{ binding: 0, resource: { buffer: frameUniformBuffer } }]
     });
+
+    // Create lighting uniform buffer and bind group
+    lightUniformBuffer = device.createBuffer({
+        size: lightUniformArray.byteLength,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    lightBindGroupLayout = device.createBindGroupLayout({
+        label: 'Light BGL',
+        entries: [{
+            binding: 0,
+            visibility: GPUShaderStage.FRAGMENT,
+            buffer: {}
+        }]
+    });
+
+    lightBindGroup = device.createBindGroup({
+        label: 'Light BG',
+        layout: lightBindGroupLayout,
+        entries: [{ binding: 0, resource: { buffer: lightUniformBuffer } }]
+    });
+
 
     await initGrid();
     await initCoordinateAxes();
@@ -554,6 +627,9 @@ function renderFrame() {
         pass.setVertexBuffer(0, mesh.vertexBuffer);
         if (!mesh.singleColor && mesh.colorBuffer) {
             pass.setVertexBuffer(1, mesh.colorBuffer);
+        }
+        if (!mesh.singleColor) {
+            pass.setBindGroup(1, lightBindGroup);
         }
 
         pass.setIndexBuffer(mesh.indexBuffer, 'uint16');
@@ -821,6 +897,14 @@ export async function updateDisplayOptions(options) {
         }
     }
 
+    // Update lighting uniforms
+    if (options.lightDir) lightDirection.set(options.lightDir);
+    if (typeof options.ambient === 'number') lightAmbient[0] = options.ambient;
+    if (typeof options.specularPower === 'number') lightSpecularPower[0] = options.specularPower;
+    if (device) {
+        device.queue.writeBuffer(lightUniformBuffer, 0, lightUniformArray);
+    }
+
     // Update grid uniforms
     if (options.baseColor) {
         const newIsTransparent = options.baseColor[3] < 1.0;
@@ -903,26 +987,34 @@ export async function addMesh(meshData) {
 
     let colorBuffer = null;
     let bindGroup = null;
-    let bindGroupLayout = null;  // Declare here so it's accessible later
+    let meshBindGroupLayout = null;
     let isTransparent = false;
     let shaderCode = null;
+    let pipelineLayout = null;
 
     if (singleColor) {
         shaderCode = MESH_SHADER;
         isTransparent = colors.length >= 4 && colors[3] < 1.0;
 
-        colorBuffer = createBuffer(colors, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
+        const singleColorUniformBuffer = createBuffer(colors, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
 
-        bindGroupLayout = device.createBindGroupLayout({
+        meshBindGroupLayout = device.createBindGroupLayout({
             label: `Mesh ${id} BGL`,
-            entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }]
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }, // Light uniforms
+                { binding: 1, visibility: GPUShaderStage.FRAGMENT, buffer: {} }  // Mesh color
+            ]
         });
 
         bindGroup = device.createBindGroup({
             label: `Mesh ${id} BG`,
-            layout: bindGroupLayout,
-            entries: [{ binding: 0, resource: { buffer: colorBuffer } }]
+            layout: meshBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: lightUniformBuffer } },
+                { binding: 1, resource: { buffer: singleColorUniformBuffer } }
+            ]
         });
+        pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout, meshBindGroupLayout] });
     } else {
         shaderCode = MESH_SHADER_VERTEX_COLOR;
         colorBuffer = createBuffer(colors, GPUBufferUsage.VERTEX);
@@ -934,6 +1026,9 @@ export async function addMesh(meshData) {
                 break;
             }
         }
+        // For vertex-colored meshes, the bind group layout is just the light BGL
+        meshBindGroupLayout = lightBindGroupLayout;
+        pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout, lightBindGroupLayout] });
     }
 
     const shaderModule = device.createShaderModule({ code: shaderCode });
@@ -949,9 +1044,7 @@ export async function addMesh(meshData) {
         });
     }
 
-    const pipelineLayout = singleColor
-        ? device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout, bindGroupLayout] })
-        : device.createPipelineLayout({ bindGroupLayouts: [frameBindGroupLayout] });
+
 
     const pipeline = await device.createRenderPipelineAsync({
         label: `Mesh ${id} Pipeline`,

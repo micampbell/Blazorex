@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 
 namespace BugViewer;
@@ -22,6 +23,10 @@ public class BugViewerOptions : INotifyPropertyChanged
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
     public static BugViewerOptions Default = new()
     {
+        LightDirection = new Vector3(-MathF.Sin(MathF.PI / 6) * MathF.Cos(MathF.PI / 4), -MathF.Sin(MathF.PI / 6) * MathF.Sin(MathF.PI / 4),
+            -MathF.Cos(MathF.PI / 6)),
+        AmbientLight = 0.3,
+        SpecularPower = 32.0,
         AutoResetCamera = UpdateTypes.SphereChange,
         AutoCameraSphereBuffer = 0.2,
         AutoUpdateGrid = UpdateTypes.SphereChange,
@@ -39,6 +44,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         OrthoSize = 5.0,
         ZNear = 0.001,
         ZFar = 999,
+        ZIsUp = true,
         GridSize = 100.0,
         GridSpacing = 5.0,
         ConstrainPolar = true,
@@ -576,6 +582,53 @@ public class BugViewerOptions : INotifyPropertyChanged
         }
     }
 
+    private System.Numerics.Vector3 _lightDirection;
+    /// <summary>Direction of the primary light source.</summary>
+    public System.Numerics.Vector3 LightDirection
+    {
+        get => _lightDirection;
+        set
+        {
+            if (_lightDirection != value)
+            {
+                _lightDirection = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private double _ambientLight;
+    /// <summary>Ambient light intensity (0.0 to 1.0).</summary>
+    public double AmbientLight
+    {
+        get => _ambientLight;
+        set
+        {
+            var clamp = Math.Clamp(value, 0.0, 1.0);
+            if (ChangeOccurred(_ambientLight, clamp))
+            {
+                _ambientLight = clamp;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private double _specularPower;
+    /// <summary>Shininess of the material (higher is sharper).</summary>
+    public double SpecularPower
+    {
+        get => _specularPower;
+        set
+        {
+            if (ChangeOccurred(_specularPower, value))
+            {
+                _specularPower = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+
     private double _coordThick;
     /// <summary>Whether to show coordinate axes (X=red, Y=green, Z=blue).</summary>
     public double CoordinateThickness
@@ -610,6 +663,9 @@ public class BugViewerOptions : INotifyPropertyChanged
         gridSpacing = (float)GridSpacing,
         zIsUp = ZIsUp,
         coordinateThickness = CoordinateThickness,
+        lightDir = new[] { LightDirection.X, LightDirection.Y, LightDirection.Z },
+        ambient = (float)AmbientLight,
+        specularPower = (float)SpecularPower,
     };
     internal static IEnumerable<float> ColorToJavaScript(string c, double transparency)
     {
