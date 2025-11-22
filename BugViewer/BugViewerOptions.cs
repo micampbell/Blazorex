@@ -30,7 +30,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         AutoResetCamera = UpdateTypes.SphereChange,
         AutoCameraSphereBuffer = 0.2,
         AutoUpdateGrid = UpdateTypes.SphereChange,
-        AutoGridBuffer = 1.0,
+        AutoGridBuffer = 3.0,
         ClearColor = "rgb(233,233,255)",
         LineColor = "rgb(215, 215, 215)",
         LineTransparency = 0.8f,

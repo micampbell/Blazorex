@@ -30,7 +30,7 @@ const GRID_SHADER = `
   @group(0) @binding(0) var<uniform> camera: Camera;
   struct GridArgs { lineColor: vec4f, baseColor: vec4f, lineWidth: vec2f, spacing: f32 }
   @group(1) @binding(0) var<uniform> gridArgs: GridArgs;
-  @vertex fn vertexMain(in: VertexIn) -> VertexOut { var out: VertexOut; out.pos = camera.projection * camera.view * vec4f(in.pos, 1.0); out.uv = in.uv; return out; }
+  @vertex fn vertexMain(in: VertexIn) -> VertexOut { var out: VertexOut; out.pos = camera.projection * camera.view * vec4f(in.pos, 1.0); out.uv = in.uv - vec2f(50.0, 50.0); return out; }
   @fragment fn fragmentMain(in: VertexOut) -> @location(0) vec4f { var grid = PristineGrid(in.uv * gridArgs.spacing, gridArgs.lineWidth); return mix(gridArgs.baseColor, gridArgs.lineColor, grid); }
 `;
 
