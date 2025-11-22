@@ -385,12 +385,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     public async Task AddMeshAsync(MeshData mesh)
     {
         _meshes.Add(mesh);
-        if ((UpdateSpheresAdd(mesh) && _options.AutoResetCamera == UpdateTypes.SphereChange)
-        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
-        {
-            ResetCamera();
-            await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
-        }
+        UpdateViewer(UpdateSpheresAdd(mesh));
         await _module.InvokeVoidAsync("addMesh", mesh.CreateJavascriptData());
     }
 
@@ -400,12 +395,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     public async Task AddLinesAsync(LineData path)
     {
         _lines.Add(path);
-        if ((UpdateSpheresAdd(path) && _options.AutoResetCamera == UpdateTypes.SphereChange)
-        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
-        {
-            ResetCamera();
-            await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
-        }
+        UpdateViewer(UpdateSpheresAdd(path));
         await _module.InvokeVoidAsync("addLines", path.CreateJavascriptData());
     }
 
@@ -416,15 +406,24 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     {
         var index = _meshes.IndexOf(mesh);
         if (index < 0) return;
-        if ((UpdateSpheresRemove(mesh) && _options.AutoResetCamera == UpdateTypes.SphereChange)
+        UpdateViewer(UpdateSpheresRemove(mesh));
+        await _module.InvokeVoidAsync("removeMesh", index);
+    }
+    private async void UpdateViewer(bool sphereChanged)
+    {
+        if ((sphereChanged && _options.AutoResetCamera == UpdateTypes.SphereChange)
         || _options.AutoResetCamera == UpdateTypes.OnDataChange)
         {
             ResetCamera();
             await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
         }
-        await _module.InvokeVoidAsync("removeMesh", index);
+        if ((sphereChanged && _options.AutoUpdateGrid == UpdateTypes.SphereChange)
+        || _options.AutoUpdateGrid == UpdateTypes.OnDataChange)
+        {
+            _options.GridSize = _options.AutoGridBuffer * (totalSphere.Center.Length() + totalSphere.GetRadius());
+            OnOptionsChanged(null, null);
+        }
     }
-
     /// <summary>
     /// Removes lines from the scene by their ID.
     /// </summary>
@@ -432,12 +431,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     {
         var index = _lines.IndexOf(path);
         if (index < 0) return;
-        if ((UpdateSpheresRemove(path) && _options.AutoResetCamera == UpdateTypes.SphereChange)
-        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
-        {
-            ResetCamera();
-            await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
-        }
+        UpdateViewer(UpdateSpheresRemove(path));
         await _module.InvokeVoidAsync("removeLines", index);
     }
 
@@ -449,12 +443,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
         if (_meshes.Count == 0) return;
         var needToUpdate = _meshes.All(m => UpdateSpheresRemove(m));
         _meshes.Clear();
-        if ((needToUpdate && _options.AutoResetCamera == UpdateTypes.SphereChange)
-        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
-        {
-            ResetCamera();
-            await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
-        }
+        UpdateViewer(needToUpdate);
         await _module.InvokeVoidAsync("clearAllMeshes");
     }
 
@@ -466,12 +455,7 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
         if (_lines.Count == 0) return;
         var needToUpdate = _lines.All(m => UpdateSpheresRemove(m));
         _lines.Clear();
-        if ((needToUpdate && _options.AutoResetCamera == UpdateTypes.SphereChange)
-        || _options.AutoResetCamera == UpdateTypes.OnDataChange)
-        {
-            ResetCamera();
-            await _module!.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
-        }
+        UpdateViewer(needToUpdate);
         await _module.InvokeVoidAsync("clearAllLines");
     }
 
@@ -487,13 +471,13 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
 
         // Render text to bitmap in C# instead of JavaScript
         var billboardData = new TextBillboard
-            {
-                BackgroundColor = backgroundColor,
-                TextColor = textColor,
-                Text = text,
-                Vertices =new List<Vector3> { position },
-                Id = id
-            };
+        {
+            BackgroundColor = backgroundColor,
+            TextColor = textColor,
+            Text = text,
+            Vertices = new List<Vector3> { position },
+            Id = id
+        };
         await _module.InvokeVoidAsync("addTextBillboard", billboardData.CreateJavascriptData());
     }
 
@@ -892,12 +876,12 @@ height:@(Height > 0 ? Height + "px" : "100vh");"
     #endregion
     private async void OnOptionsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == "ZIsUp")
+        if (e?.PropertyName == "ZIsUp")
         {
             Camera.SwapCameraUp();
             await _module.InvokeVoidAsync("writeViewMatrix", Camera.ConvertMatrixToJavaScript());
         }
-        if (e.PropertyName == "IsProjectionCamera")
+        if (e?.PropertyName == "IsProjectionCamera")
             Options.AdjustCameraProjectionParameters();
         await SendOptionsToJavaScriptAsync(false);
         await InvokeAsync(StateHasChanged);

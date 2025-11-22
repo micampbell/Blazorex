@@ -23,6 +23,9 @@ public class BugViewerOptions : INotifyPropertyChanged
     public static BugViewerOptions Default = new()
     {
         AutoResetCamera = UpdateTypes.SphereChange,
+        AutoCameraSphereBuffer = 0.2,
+        AutoUpdateGrid = UpdateTypes.SphereChange,
+        AutoGridBuffer = 1.0,
         ClearColor = "rgb(233,233,255)",
         LineColor = "rgb(215, 215, 215)",
         LineTransparency = 0.8f,
@@ -56,6 +59,9 @@ public class BugViewerOptions : INotifyPropertyChanged
     public void ResetToDefault()
     {
         AutoResetCamera = Default.AutoResetCamera;
+        AutoUpdateGrid = Default.AutoUpdateGrid;
+        AutoCameraSphereBuffer = Default.AutoCameraSphereBuffer;
+        AutoGridBuffer = Default.AutoGridBuffer;
         ClearColor = Default.ClearColor;
         LineColor = Default.LineColor;
         LineTransparency = Default.LineTransparency;
@@ -101,6 +107,40 @@ public class BugViewerOptions : INotifyPropertyChanged
         }
     }
 
+    private UpdateTypes _autoUpdateGrid;
+    public UpdateTypes AutoUpdateGrid
+    {
+        get => _autoUpdateGrid;
+        set
+        {
+            if (_autoUpdateGrid != value)
+            {
+                _autoUpdateGrid = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+
+    private double _autoGridBuffer;
+    /// <summary>
+    /// The amount that the radius of the bounding sphere is increased 
+    /// when automatically positioning the camera to view an object.
+    /// </summary>
+    public double AutoGridBuffer
+    {
+        get => _autoGridBuffer;
+        set
+        {
+            if (ChangeOccurred(_autoGridBuffer, value))
+            {
+                _autoGridBuffer = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+
     private string _clearColor;
     /// <summary>Background clear color for the rendering canvas.</summary>
     public string ClearColor
@@ -116,7 +156,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         }
     }
 
-    private double _autoCameraSphereBuffer = 0.2;
+    private double _autoCameraSphereBuffer;
     /// <summary>
     /// The amount that the radius of the bounding sphere is increased 
     /// when automatically positioning the camera to view an object.
