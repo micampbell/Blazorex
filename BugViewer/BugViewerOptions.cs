@@ -23,8 +23,8 @@ public class BugViewerOptions : INotifyPropertyChanged
     /// <summary>Default configuration with sensible values for a basic grid.</summary>
     public static BugViewerOptions Default = new()
     {
-        LightDirection = new Vector3(-MathF.Sin(MathF.PI / 6) * MathF.Cos(MathF.PI / 4), -MathF.Sin(MathF.PI / 6) * MathF.Sin(MathF.PI / 4),
-            -MathF.Cos(MathF.PI / 6)),
+        LightPolarAngle = 0.13 * Math.PI,
+        LightAzimuthAngle = 0.33 * Math.PI,
         AmbientLight = 0.3,
         SpecularPower = 32.0,
         AutoResetCamera = UpdateTypes.SphereChange,
@@ -56,9 +56,9 @@ public class BugViewerOptions : INotifyPropertyChanged
         MaxDistance = 9999.0,
         MinDistance = 0.5,
         ConstrainDistance = true,
-        OrbitSensitivity = 0.001,
-        ZoomSensitivity = 0.001,
-        PanSensitivity = 0.001,
+        OrbitSensitivity = 0.01,
+        ZoomSensitivity = 0.005,
+        PanSensitivity = 0.005,
         PanSpeedMultiplier = 3.0,
         CoordinateThickness = 1
     };
@@ -582,19 +582,45 @@ public class BugViewerOptions : INotifyPropertyChanged
         }
     }
 
-    private System.Numerics.Vector3 _lightDirection;
+    private double _lightPolarAngle;
     /// <summary>Direction of the primary light source.</summary>
-    public System.Numerics.Vector3 LightDirection
+    public double LightPolarAngle
     {
-        get => _lightDirection;
+        get => _lightPolarAngle;
         set
         {
-            if (_lightDirection != value)
+            var clamp = Math.Clamp(value, 0.0, Math.PI);
+            if (ChangeOccurred(_lightPolarAngle, clamp))
             {
-                _lightDirection = value;
+                _lightPolarAngle = clamp;
                 OnPropertyChanged();
             }
         }
+    }
+    private double _lightAzimuthAngle;
+    /// <summary>Direction of the primary light source.</summary>
+    public double LightAzimuthAngle
+    {
+        get => _lightAzimuthAngle;
+        set
+        {
+            var clamp = Math.Clamp(value, 0.0, Math.Tau);
+            if (ChangeOccurred(_lightAzimuthAngle, clamp))
+            {
+                _lightAzimuthAngle = clamp;
+                OnPropertyChanged();
+            }
+        }
+    }
+    private float[] GetLightDirection()
+    {
+        var x = (float)(-Math.Sin(LightPolarAngle) * Math.Cos(LightAzimuthAngle));
+        var y = (float)(-Math.Sin(LightPolarAngle) * Math.Sin(LightAzimuthAngle));
+        var z = (float)(-Math.Cos(LightPolarAngle));
+
+        if (ZIsUp)
+            return [x, y, z];
+        else return [z, x, y];
     }
 
     private double _ambientLight;
@@ -663,7 +689,7 @@ public class BugViewerOptions : INotifyPropertyChanged
         gridSpacing = (float)GridSpacing,
         zIsUp = ZIsUp,
         coordinateThickness = CoordinateThickness,
-        lightDir = new[] { LightDirection.X, LightDirection.Y, LightDirection.Z },
+        lightDir = GetLightDirection(),
         ambient = (float)AmbientLight,
         specularPower = (float)SpecularPower,
     };

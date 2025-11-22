@@ -20,6 +20,10 @@
 										@bind-Color="Options.ClearColor" />
 					</BitGridItem>
 				</BitGrid>
+				<BitSlider Label="Light Polar Angle" @bind-Value="Options.LightPolarAngle" Min="0" Max="3.14" Step="0.01" />
+				<BitSlider Label="Light Azimuthal" @bind-Value="Options.LightAzimuthAngle" Min="1" Max="6.28" Step="0.01" />
+				<BitSlider Label="Ambient Light Factor" @bind-Value="Options.AmbientLight" Min="0" Max="1" Step="0.01" />
+				<BitSlider Label="SpecularPower" @bind-Value="Options.SpecularPower" Min="1" Max="100" Step="0.25" />
 			</BitAccordion>
 
 			<BitAccordion Title="📐 Grid">
@@ -108,9 +112,9 @@
 					<!-- Sensitivity Settings -->
 					<BitText Variant="BitTextVariant.H6">Sensitivity Settings</BitText>
 					<BitLabel>Orbit Sensitivity: @Options.OrbitSensitivity.ToString("F5")</BitLabel>
-					<BitSlider @bind-Value="Options.OrbitSensitivity" Min="0.0001" Max="0.01" Step="0.0001" />
+					<BitSlider @bind-Value="Options.OrbitSensitivity" Min="0.001" Max="0.1" Step="0.001" />
 					<BitLabel>Zoom Sensitivity: @Options.ZoomSensitivity.ToString("F5")</BitLabel>
-					<BitSlider @bind-Value="Options.ZoomSensitivity" Min="0.0001" Max="0.005" Step="0.0001" />
+					<BitSlider @bind-Value="Options.ZoomSensitivity" Min="0.0001" Max="0.01" Step="0.0001" />
 					<BitLabel>Pan Sensitivity: @Options.PanSensitivity.ToString("F5")</BitLabel>
 					<BitSlider @bind-Value="Options.PanSensitivity" Min="0.0001" Max="0.01" Step="0.001" />
 					<BitLabel>Pan Speed Multiplier (Shift): @Options.PanSpeedMultiplier.ToString("F1")</BitLabel>
